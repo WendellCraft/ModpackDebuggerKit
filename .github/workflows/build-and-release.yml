@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - "version"
+      - ".github/workflows/build-and-release.yml"
   workflow_dispatch:
 
 jobs:
@@ -34,7 +35,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install PyInstaller
-        run: pip install pyinstaller
+        run: pip install --quiet pyinstaller
 
       - name: Read version
         id: version
@@ -42,12 +43,15 @@ jobs:
 
       - name: Build executable (multi-file)
         run: |
-          pyinstaller --noconfirm --onedir modpack_debugger.py
+          echo "Building PyInstaller package..."
+          pyinstaller --noconfirm --onedir modpack_debugger.py --name modpack_debugger --clean --quiet
+        shell: bash
 
       - name: Zip distribution
         run: |
           cd dist
-          zip -r "../ModpackDebuggerKit_${{ steps.version.outputs.version }}_${{ matrix.suffix }}.zip" main/
+          folder=$(ls -1 | head -n 1)
+          zip -r "../ModpackDebuggerKit_${{ steps.version.outputs.version }}_${{ matrix.suffix }}.zip" "$folder"
         shell: bash
 
       - name: Upload artifact
