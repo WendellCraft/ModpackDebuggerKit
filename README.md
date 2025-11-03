@@ -16,7 +16,9 @@ The Modpack Debugger Kit is a Python application designed to help creators of mo
 
 ## Prerequisites
 
-To run this application, you need Python installed (3.11+ recommended). You also need pip installed.
+To run this application from source, you need Python installed (3.11+ recommended). You also need pip installed.
+
+If you plan to run from the executable and not the source you should not need any prerequisites.
 
 ## Installation and Setup
 
