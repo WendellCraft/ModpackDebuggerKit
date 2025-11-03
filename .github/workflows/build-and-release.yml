@@ -1,0 +1,100 @@
+name: Build and Release ModpackDebuggerKit
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "version"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: Windows
+            runner: windows-latest
+            suffix: Win64
+          - os: Linux
+            runner: ubuntu-latest
+            suffix: Linux
+          - os: macOS
+            runner: macos-latest
+            suffix: macOS
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat version)" >> $GITHUB_OUTPUT
+
+      - name: Build executable (multi-file)
+        run: |
+          pyinstaller --noconfirm --onedir modpack_debugger.py
+
+      - name: Zip distribution
+        run: |
+          cd dist
+          zip -r "../ModpackDebuggerKit_${{ steps.version.outputs.version }}_${{ matrix.suffix }}.zip" main/
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ModpackDebuggerKit_${{ matrix.suffix }}
+          path: ModpackDebuggerKit_${{ steps.version.outputs.version }}_${{ matrix.suffix }}.zip
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat version)" >> $GITHUB_OUTPUT
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Get previous release tag (if any)
+        id: prev
+        run: |
+          prev=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' || true)
+          echo "previous=$prev" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          prev="${{ steps.prev.outputs.previous }}"
+          if [ -n "$prev" ]; then
+            changes="See changes since previous release: https://github.com/${{ github.repository }}/compare/$prev...$v"
+          else
+            changes="Initial release."
+          fi
+
+          gh release create "$v" \
+            --title "$v" \
+            --notes "$changes" \
+            ModpackDebuggerKit_Win64/ModpackDebuggerKit_${v}_Win64.zip \
+            ModpackDebuggerKit_Linux/ModpackDebuggerKit_${v}_Linux.zip \
+            ModpackDebuggerKit_macOS/ModpackDebuggerKit_${v}_macOS.zip
