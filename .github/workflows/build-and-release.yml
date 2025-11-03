@@ -30,6 +30,7 @@ jobs:
       - name: Read version from file
         id: get_version
         run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
+        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,6 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pyinstaller
           pip install -r requirements.txt
 
       - name: Build with PyInstaller
@@ -46,8 +48,7 @@ jobs:
 
       - name: Zip the build (Windows)
         if: runner.os == 'Windows'
-        run: |
-          Compress-Archive -Path dist/ModpackDebuggerKit -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
+        run: Compress-Archive -Path dist/ModpackDebuggerKit -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
 
       - name: Zip the build (Linux/macOS)
         if: runner.os != 'Windows'
@@ -76,6 +77,7 @@ jobs:
       - name: Read version from file
         id: get_version
         run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
+        shell: bash
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -96,6 +98,7 @@ jobs:
           echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
           echo "$BODY" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
+        shell: bash
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
