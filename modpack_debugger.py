@@ -4,12 +4,51 @@ import json
 import threading
 from datetime import datetime
 from pathlib import Path
+import hashlib
+import requests
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+def _get_sha1_hash(file_path):
+    """Calculate the SHA1 hash of a file."""
+    sha1 = hashlib.sha1()
+    try:
+        with open(file_path, 'rb') as f:
+            while True:
+                data = f.read(65536)  # Read in 64k chunks
+                if not data:
+                    break
+                sha1.update(data)
+        return sha1.hexdigest()
+    except Exception as e:
+        print(f"Error reading file {file_path}: {e}")
+        return None
+
+def _get_mod_info(mod_hash):
+    """Get mod information from Modrinth API using the file hash."""
+    url = f"https://api.modrinth.com/v2/version_file/{mod_hash}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching mod info for hash {mod_hash}: {e}")
+        return None
+
+def _get_project_versions(project_id):
+    """Get all versions of a project from Modrinth API."""
+    url = f"https://api.modrinth.com/v2/project/{project_id}/version"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching project versions for ID {project_id}: {e}")
+        return None
+    
 class ModpackDebuggerKit(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -28,6 +67,8 @@ class ModpackDebuggerKit(ctk.CTk):
         self.hanging_libraries = []
         self.project_file_path = None
         self.project_modified = False
+        self.sync_thread = None
+        self.sync_cancelled = False
         
         self.setup_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -302,6 +343,102 @@ class ModpackDebuggerKit(ctk.CTk):
             elif response:  # Yes
                 self.save_project()
         self.destroy()
+
+    def modrinth_sync(self, dep_frame):
+        try:
+            if not self.project_data["mods_dir"]:
+                self.log("Error: Please select a mod folder first", "ERROR")
+                return
+                
+            mods_dir = Path(self.project_data["mods_dir"])
+            if not mods_dir.exists():
+                self.log("Error: Mod folder does not exist", "ERROR")
+                return
+                
+            jar_files = [f.name for f in mods_dir.iterdir() if f.is_file() and f.suffix == ".jar"]
+            total_files = len(jar_files)
+            if total_files == 0:
+                self.log("No .jar files found in the mods folder.", "WARNING")
+                return
+                
+            self.log(f"Starting Modrinth dependency sync for {total_files} mods...", "INFO")
+            
+            # 1. Calculate hashes for all current mods
+            mod_hashes = {}
+            for i, jar_file in enumerate(jar_files):
+                if self.sync_cancelled: return
+                file_path = mods_dir / jar_file
+                file_hash = _get_sha1_hash(file_path)
+                if file_hash:
+                    mod_hashes[jar_file] = file_hash
+                
+                self.log(f"Hashing mods... ({i + 1}/{total_files})", "PROGRESS")
+                
+            # 2. Build map of all current mod hashes
+            hash_to_filename = {v: k for k, v in mod_hashes.items()}
+            
+            new_dependencies_count = 0
+            
+            # 3. Iterate over mods to find their dependencies
+            for i, (jar_file, file_hash) in enumerate(mod_hashes.items()):
+                if self.sync_cancelled: return
+                self.log(f"Syncing... ({i + 1}/{total_files})", "PROGRESS")
+                
+                mod_info = _get_mod_info(file_hash)
+                
+                if not mod_info:
+                    self.log(f"API failed or mod not found for {jar_file}. Skipping.", "WARNING")
+                    continue
+
+                dependencies = mod_info.get('dependencies', [])
+
+                if not dependencies:
+                    continue
+
+                found_dependencies = []
+                
+                # Use a set to prevent checking the same project multiple times
+                projects_to_check = set(d.get('project_id') for d in dependencies if d.get('project_id'))
+
+                for project_id in projects_to_check:
+                    if self.sync_cancelled: return
+                    project_versions = _get_project_versions(project_id)
+                    
+                    if project_versions:
+                        for version in project_versions:
+                            for file_info in version.get('files', []):
+                                dependency_hash = file_info.get('hashes', {}).get('sha1')
+                                # Check if the dependency's file is one of the mods currently in the folder
+                                if dependency_hash in hash_to_filename:
+                                    found_dependencies.append(hash_to_filename[dependency_hash])
+                                    break 
+                            if hash_to_filename.get(dependency_hash):
+                                 break
+
+                if found_dependencies:
+                    # Add only new, unique dependencies
+                    current_deps = set(self.project_data["dependencies"].get(jar_file, []))
+                    new_deps = set(found_dependencies)
+                    
+                    if new_deps - current_deps:
+                        self.project_data["dependencies"][jar_file] = sorted(list(current_deps | new_deps))
+                        self.mark_modified()
+                        new_dependencies_count += 1
+                        self.log(f"Added dependencies for {jar_file}: {', '.join(list(new_deps - current_deps))}", "SUCCESS")
+                    else:
+                        self.log(f"Dependencies for {jar_file} already tracked.", "INFO")
+
+            if self.sync_cancelled: return
+
+            # 4. Final steps
+            self.update_hanging_libraries()
+            
+            if new_dependencies_count > 0:
+                self.log(f"Modrinth Sync complete: Added {new_dependencies_count} dependency rule(s).", "SUCCESS")
+            else:
+                self.log("Modrinth Sync complete: No new dependencies were added.", "INFO")
+        except Exception as e:
+            self.log(f"An unexpected error occurred during sync: {e}", "ERROR")
             
     def select_mod_folder(self):
         folder = filedialog.askdirectory(title="Select Mod Folder")
@@ -405,29 +542,87 @@ class ModpackDebuggerKit(ctk.CTk):
     def manage_dependencies(self):
         dep_window = ctk.CTkToplevel(self)
         dep_window.title("Dependency Manager")
-        dep_window.geometry("700x550")
+        dep_window.geometry("750x550")
         dep_window.grab_set()
-        
-        ctk.CTkLabel(dep_window, text="Mod Dependency Manager", 
-                    font=ctk.CTkFont(size=18, weight="bold")).pack(pady=20)
-        
+
+        ctk.CTkLabel(dep_window, text="Mod Dependency Manager",
+                    font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(20, 10))
+
         dep_frame = ctk.CTkScrollableFrame(dep_window, height=300)
-        dep_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
+        dep_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
         self.refresh_dependency_list(dep_frame)
-        
+
         add_frame = ctk.CTkFrame(dep_window)
         add_frame.pack(fill="x", padx=20, pady=10)
-        
+
         btn_row = ctk.CTkFrame(add_frame, fg_color="transparent")
         btn_row.pack(pady=10)
         
-        ctk.CTkButton(btn_row, text="➕ Add Dependency", 
-                     command=lambda: self.add_dependency_dialog(dep_window, dep_frame)).pack(side="left", padx=5)
-        ctk.CTkButton(btn_row, text="🗑️ Delete All", 
+        sync_status_frame = ctk.CTkFrame(dep_window, fg_color="transparent")
+        sync_status_frame.pack(fill="x", padx=20, pady=5)
+
+        modrinth_btn = ctk.CTkButton(btn_row, text="🔄 Modrinth Sync", fg_color="green")
+        add_btn = ctk.CTkButton(btn_row, text="➕ Add Dependency",
+                     command=lambda: self.add_dependency_dialog(dep_window, dep_frame))
+        delete_all_btn = ctk.CTkButton(btn_row, text="🗑️ Delete All",
                      command=lambda: self.delete_all_dependencies(dep_frame),
-                     fg_color="darkred").pack(side="left", padx=5)
+                     fg_color="darkred")
+
+        modrinth_btn.pack(side="left", padx=5)
+        add_btn.pack(side="left", padx=5)
+        delete_all_btn.pack(side="left", padx=5)
         
+        controls = [modrinth_btn, add_btn, delete_all_btn]
+        modrinth_btn.configure(command=lambda: self.run_sync_operation(
+            dep_window, dep_frame, controls, sync_status_frame
+        ))
+        
+    def cancel_sync(self):
+        self.sync_cancelled = True
+        self.log("Sync cancellation requested...", "WARNING")
+
+    def run_sync_operation(self, window, dep_frame, controls, status_frame):
+        # UI Setup
+        for control in controls:
+            control.configure(state="disabled")
+        controls[0].configure(text="Syncing...")
+        
+        window.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        for widget in status_frame.winfo_children():
+            widget.destroy()
+        ctk.CTkLabel(status_frame, text="Syncing Dependencies with Modrinth...").pack(side="left", expand=True, padx=10)
+        ctk.CTkButton(status_frame, text="Cancel Sync", fg_color="darkred", command=self.cancel_sync).pack(side="right", padx=10)
+        
+        # Threading
+        self.sync_cancelled = False
+        self.sync_thread = threading.Thread(target=self.modrinth_sync, args=(dep_frame,), daemon=True)
+        self.sync_thread.start()
+        
+        # Monitor Thread
+        self.monitor_sync_thread(window, dep_frame, controls, status_frame)
+
+    def monitor_sync_thread(self, window, dep_frame, controls, status_frame):
+        if self.sync_thread.is_alive():
+            self.after(100, lambda: self.monitor_sync_thread(window, dep_frame, controls, status_frame))
+        else:
+            # UI Cleanup
+            for control in controls:
+                control.configure(state="normal")
+            controls[0].configure(text="🔄 Modrinth Sync")
+            
+            for widget in status_frame.winfo_children():
+                widget.destroy()
+            
+            window.protocol("WM_DELETE_WINDOW", window.destroy)
+            
+            self.refresh_dependency_list(dep_frame)
+            if self.sync_cancelled:
+                self.log("Sync process terminated by user.", "WARNING")
+            else:
+                self.log("Sync process finished.", "INFO")
+
     def refresh_dependency_list(self, parent):
         for widget in parent.winfo_children():
             widget.destroy()
