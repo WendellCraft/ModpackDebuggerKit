@@ -11,6 +11,7 @@ The Modpack Debugger Kit is a Python application designed to help creators of mo
     *   **Mode 1 (All Mods):** Debug the entire modpack using a binary search.
     *   **Mode 2 (Specific New Mods):** Focus the search only on recently added mods.
 *   **Dependency Awareness:** Maintain a list of mod dependencies to ensure essential libraries are always included in the test group of their dependent mods.
+*   **Modrinth Dependency Syncing:** Automatically bind mods to their dependencies via the Modrinth API instead of having to do it manually.
 *   **Hanging Library Detection:** Identify library mods that remain in the folder but are no longer required by any main mod (useful for cleanup).
 *   **Theming:** Toggle between dark and light themes.
 
