@@ -1,6 +1,6 @@
 # Modpack Debugger Kit
 
-The Modpack Debugger Kit is a Python application designed to help creators of modpacks easy find mods causing crashes along with various small other helpful features.
+The Modpack Debugger Kit is a Python application designed to help creators of modpacks easily find mods causing crashes along with various small other helpful features.
 
 ## Features
 
