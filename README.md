@@ -104,3 +104,7 @@ The application uses the following directory structure:
 *   `modpack_debugger.py` (The main script)
 *   `temp_mods/` (Created automatically to temporarily hold mods during testing)
 *   `[ProjectName].json` (Saved project files, containing settings and dependency rules)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=WendellCraft/ModpackDebuggerKit&type=date&legend=top-left)](https://www.star-history.com/#WendellCraft/ModpackDebuggerKit&type=date&legend=top-left)
