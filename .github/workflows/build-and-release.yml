@@ -44,7 +44,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build with PyInstaller
-        run: pyinstaller modpack_debugger.py --name ModpackDebuggerKit
+        run: pyinstaller modpack_debugger.py --name ModpackDebuggerKit --noconsole
 
       - name: Zip the build (Windows)
         if: runner.os == 'Windows'
