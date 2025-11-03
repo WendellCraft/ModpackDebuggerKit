@@ -1,104 +1,106 @@
-name: Build and Release ModpackDebuggerKit
+name: Build and Release MDK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
-      - "version"
-      - ".github/workflows/build-and-release.yml"
-  workflow_dispatch:
+      - 'version'
+      - '.github/workflows/build-and-release.yml'
 
 jobs:
   build:
-    name: Build for ${{ matrix.os }}
-    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
         include:
-          - os: Windows
-            runner: windows-latest
-            suffix: Win64
-          - os: Linux
-            runner: ubuntu-latest
-            suffix: Linux
-          - os: macOS
-            runner: macos-latest
-            suffix: macOS
+          - os: windows-latest
+            asset_os_name: Win64
+          - os: ubuntu-latest
+            asset_os_name: Linux
+          - os: macos-latest
+            asset_os_name: macOS
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Read version from file
+        id: get_version
+        run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install PyInstaller
-        run: pip install --quiet pyinstaller
-
-      - name: Read version
-        id: version
-        run: echo "version=$(cat version)" >> $GITHUB_OUTPUT
-
-      - name: Build executable (multi-file)
+      - name: Install dependencies
         run: |
-          echo "Building PyInstaller package..."
-          pyinstaller --noconfirm --onedir modpack_debugger.py --name modpack_debugger --clean --quiet
-        shell: bash
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Zip distribution
+      - name: Build with PyInstaller
+        run: pyinstaller modpack_debugger.py --name ModpackDebuggerKit
+
+      - name: Zip the build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path dist/ModpackDebuggerKit -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
+
+      - name: Zip the build (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           cd dist
-          folder=$(ls -1 | head -n 1)
-          zip -r "../ModpackDebuggerKit_${{ steps.version.outputs.version }}_${{ matrix.suffix }}.zip" "$folder"
-        shell: bash
+          zip -r ../ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip ModpackDebuggerKit
 
-      - name: Upload artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ModpackDebuggerKit_${{ matrix.suffix }}
-          path: ModpackDebuggerKit_${{ steps.version.outputs.version }}_${{ matrix.suffix }}.zip
+          name: ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}
+          path: ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
 
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
+  create-release:
     needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read version
-        id: version
-        run: echo "version=$(cat version)" >> $GITHUB_OUTPUT
+      - name: Read version from file
+        id: get_version
+        run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
 
-      - name: Get previous release tag (if any)
-        id: prev
+      - name: Generate Release Body
+        id: generate_body
         run: |
-          prev=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' || true)
-          echo "previous=$prev" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          v="${{ steps.version.outputs.version }}"
-          prev="${{ steps.prev.outputs.previous }}"
-          if [ -n "$prev" ]; then
-            changes="See changes since previous release: https://github.com/${{ github.repository }}/compare/$prev...$v"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            BODY="This is the first release of Modpack Debugger Kit."
           else
-            changes="Initial release."
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ env.VERSION }}"
+            BODY="See the changes made since the last release: [${PREVIOUS_TAG}...${{ env.VERSION }}](${COMPARE_URL})"
           fi
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
+          echo "$BODY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
-          gh release create "$v" \
-            --title "$v" \
-            --notes "$changes" \
-            ModpackDebuggerKit_Win64/ModpackDebuggerKit_${v}_Win64.zip \
-            ModpackDebuggerKit_Linux/ModpackDebuggerKit_${v}_Linux.zip \
-            ModpackDebuggerKit_macOS/ModpackDebuggerKit_${v}_macOS.zip
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          body: ${{ env.RELEASE_BODY }}
+          files: artifacts/*/*.zip
