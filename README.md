@@ -20,6 +20,12 @@ To run this application, you need Python installed (3.11+ recommended). You also
 
 ## Installation and Setup
 
+### Option 1: Running from Executable
+Download the appropriate executable from [https://github.com/WendellCraft/ModpackDebuggerKit/releases/latest](https://github.com/WendellCraft/ModpackDebuggerKit/releases/latest)
+Run it!
+
+### Option 2: Running from Source
+
 1.  **Clone the Repository (or download the files):**
 
     ```bash
