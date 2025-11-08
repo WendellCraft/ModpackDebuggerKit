@@ -342,6 +342,9 @@ class ModpackDebuggerKit(ctk.CTk):
                 return
             elif response:  # Yes
                 self.save_project()
+        # Clean up temp dir on exit just in case
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
         self.destroy()
 
     def modrinth_sync(self, dep_frame):
@@ -1001,6 +1004,10 @@ class ModpackDebuggerKit(ctk.CTk):
                      command=start_with_selection).pack(pady=10)
         
     def start_debug(self):
+        if self.active_scan:
+            messagebox.showerror("Error", "A debug session is already in progress.")
+            return
+
         if not self.project_data["mods_dir"]:
             messagebox.showerror("Error", "Please select a mod folder first")
             return
@@ -1012,237 +1019,205 @@ class ModpackDebuggerKit(ctk.CTk):
             
         if self.mode_var.get() == "all":
             all_mods = [f.name for f in mods_dir.iterdir() if f.is_file() and f.suffix == ".jar"]
-            if len(all_mods) < 2:
-                messagebox.showerror("Error", "Need at least 2 mods to start a debug session")
+            if len(all_mods) < 1:
+                messagebox.showerror("Error", "Need at least 1 mod to start a debug session")
                 return
             threading.Thread(target=self.run_debug_scan, args=(all_mods,), daemon=True).start()
         else:
             if not self.saved_new_mods:
                 messagebox.showerror("Error", "No saved new mods available. Please use 'Detect New Mods' first or switch to Mode 1.")
                 return
-            if len(self.saved_new_mods) < 2:
-                messagebox.showerror("Error", "Need at least 2 new mods to start a debug session")
-                return
             self.show_mod_selection_dialog(self.saved_new_mods, "Select New Mods to Debug")
+
+    def _get_primary_mods_and_group_map(self, all_mods):
+        """
+        Analyzes dependencies to find "primary" mods and maps each to its full dependency group.
+        A primary mod is one that is not solely a dependency for another mod in the set.
+        This allows the binary search to work on interactions between mods.
+        """
+        all_mods_set = set(all_mods)
+        all_dependencies_in_set = set()
+        
+        # First, find all mods that are listed as a dependency for at least one other mod
+        for mod in all_mods:
+            deps = self.project_data["dependencies"].get(mod, [])
+            for dep in deps:
+                if dep in all_mods_set:
+                    all_dependencies_in_set.add(dep)
+        
+        # Primary mods are those in the test set that are NOT in the dependency list
+        primary_mods = sorted([mod for mod in all_mods if mod not in all_dependencies_in_set])
+        
+        # If all mods are dependencies of each other (e.g., A needs B, B needs A),
+        # or there are no primary mods, then every mod must be treated as primary.
+        if not primary_mods:
+            primary_mods = sorted(all_mods)
+            
+        group_map = {}
+        for primary_mod in primary_mods:
+            group = {primary_mod}
+            deps_to_check = list(self.project_data["dependencies"].get(primary_mod, []))
+            processed_deps = set()
+
+            while deps_to_check:
+                dep = deps_to_check.pop(0)
+                if dep in processed_deps:
+                    continue
+                processed_deps.add(dep)
+                
+                if dep in all_mods_set:
+                    group.add(dep)
+                    # Check for nested dependencies
+                    nested_deps = self.project_data["dependencies"].get(dep, [])
+                    deps_to_check.extend(nested_deps)
+
+            group_map[primary_mod] = sorted(list(group))
+            
+        return primary_mods, group_map
             
     def run_debug_scan(self, mods_to_test):
         self.active_scan = True
         self.scan_cancelled = False
         self.start_btn.configure(state="disabled")
-        
-        self.log(f"Starting debug scan with {len(mods_to_test)} mods...", "INFO")
-        
-        self.temp_dir.mkdir(exist_ok=True)
         mods_dir = Path(self.project_data["mods_dir"])
         
-        # Move mods to temp
-        self.log("Preparing... (moving mods to temp directory)", "INFO")
-        total_mods = len(mods_to_test)
-        for i, mod in enumerate(mods_to_test):
-            if self.scan_cancelled: break
-            src = mods_dir / mod
-            dest = self.temp_dir / mod
-            if src.exists():
-                shutil.move(str(src), str(dest))
-            
-            # Update progress for every mod
-            self.log(f"Moving... ({i + 1}/{total_mods})", "PROGRESS")
+        # Ensure temp dir is clean before starting
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
+        self.temp_dir.mkdir(exist_ok=True)
         
-        if not self.scan_cancelled:
-            self.log("Preparation complete.", "SUCCESS")
-            self.current_test_group = mods_to_test
-            culprit = self.binary_search(mods_to_test)
-        else:
-            culprit = None
+        try:
+            self.log(f"Starting debug scan with {len(mods_to_test)} mods...", "INFO")
+            
+            self.log("Preparing... (moving mods to temp directory)", "INFO")
+            for i, mod in enumerate(mods_to_test):
+                if self.scan_cancelled: break
+                src = mods_dir / mod
+                dest = self.temp_dir / mod
+                if src.exists():
+                    shutil.move(str(src), str(dest))
+                self.log(f"Moving... ({i + 1}/{len(mods_to_test)})", "PROGRESS")
+            
+            culprit_info = None
+            if not self.scan_cancelled:
+                self.log("Preparation complete.", "SUCCESS")
+                self.current_test_group = mods_to_test # Store the original full list for cleanup
 
-        # Restore all mods
-        self.log("Restoring all mods...", "INFO")
-        for i, mod in enumerate(mods_to_test):
-            src = self.temp_dir / mod
-            dest = mods_dir / mod
-            if src.exists():
-                shutil.move(str(src), str(dest))
-            
-            # Update progress for every mod
-            self.log(f"Restoring... ({i + 1}/{total_mods})", "PROGRESS")
-        
-        self.active_scan = False
-        self.start_btn.configure(state="normal")
-        
-        if self.scan_cancelled:
-            self.log("Debug scan cancelled - all mods restored.", "WARNING")
-        elif culprit:
-            self.log(f"CULPRIT IDENTIFIED: {culprit}", "ERROR")
-            messagebox.showinfo("Debug Complete", f"Problematic mod found:\n\n{culprit}\n\nAll mods have been restored.")
-        else:
-            self.log("No single culprit identified. All mods restored.", "WARNING")
-            
-    def binary_search(self, mods):
-        current_group = mods[:]
-        fallback_level = 1
-        
-        while len(current_group) > fallback_level and not self.scan_cancelled:
-            mid = len(current_group) // 2
-            
-            self.log("Splitting mods and resolving dependencies...", "INFO")
-            group_a, group_b = self.split_with_dependencies(current_group, mid)
-            self.log("Dependency resolution complete.", "SUCCESS")
-            
-            self.log(f"Testing Group A ({len(group_a)} mods)...", "INFO")
-            
-            test_result = self.test_group(group_a)
-            
-            if test_result is None:
-                return None
-            
-            if test_result:
-                self.log("Group A passed - focusing on Group B", "SUCCESS")
-                current_group = group_b
-            else:
-                self.log("Group A failed - focusing on Group A", "ERROR")
-                current_group = group_a
-        
-        if self.scan_cancelled:
-            return None
-            
-        if len(current_group) == 1:
-            mod = current_group[0]
-            if mod in self.project_data["dependencies"]:
-                deps = self.project_data["dependencies"][mod]
-                self.log(f"Testing mod with dependencies: {mod}", "INFO")
+                self.log("Analyzing mod dependencies to form testable groups...", "INFO")
+                primary_mods, group_map = self._get_primary_mods_and_group_map(mods_to_test)
+                self.log(f"Identified {len(primary_mods)} primary mods/groups for testing.", "SUCCESS")
                 
-                res1 = self.test_group([mod])
-                if res1 is None: return None
-                if not res1: return mod
-                
-                res2 = self.test_group(deps)
-                if res2 is None: return None
-                if not res2: return f"{mod} (dependencies: {', '.join(deps)})"
-            else:
-                res = self.test_group([mod])
-                if res is None: return None
-                if not res: return mod
-        
-        if len(current_group) >= 2 and fallback_level == 1:
-            self.log("Unable to isolate single mod. Falling back to 2-mod resolution...", "WARNING")
-            messagebox.showwarning("Debug Fallback", "Unable to isolate a single problematic mod.\n\nFalling back to identify 2 problematic mods.")
-            return self.binary_search_fallback(mods, 2)
-        
-        return None
-    
-    def binary_search_fallback(self, mods, target_count):
-        """Fallback binary search that tries to isolate target_count mods"""
-        if len(mods) <= target_count:
-            self.log(f"Cannot perform {target_count}-mod fallback with only {len(mods)} mods", "ERROR")
-            if target_count == 2 and len(mods) > 2 and not self.scan_cancelled:
-                self.log("Falling back to 3-mod resolution...", "WARNING")
-                messagebox.showwarning("Debug Fallback", "Unable to isolate 2 problematic mods.\n\nFalling back to identify 3 problematic mods.")
-                return self.binary_search_fallback(mods, 3)
-            return None
-        
-        current_group = mods[:]
-        
-        while len(current_group) > target_count and not self.scan_cancelled:
-            mid = len(current_group) // 2
-            group_a, group_b = self.split_with_dependencies(current_group, mid)
-            
-            self.log(f"Testing Group A ({len(group_a)} mods) - Target: {target_count} mods...", "INFO")
-            
-            test_result = self.test_group(group_a)
+                if not primary_mods:
+                    self.log("No primary mods could be identified. Aborting scan.", "ERROR")
+                else:
+                    # Start search with a target of 1 primary mod/group
+                    self.log("Starting debug search to isolate 1 culprit...", "INFO")
+                    culprit_info = self.binary_search(primary_mods, group_map, 1)
 
-            # If test_group returns None, it means the user cancelled. Exit immediately.
-            if test_result is None:
+                    # Fallback to 2 if first search fails
+                    if not culprit_info and not self.scan_cancelled:
+                        self.log("Unable to isolate a single culprit. Falling back to 2-culprit resolution...", "WARNING")
+                        messagebox.showwarning("Debug Fallback", "Unable to isolate a single problematic mod/group.\n\nFalling back to identify an interaction between 2.")
+                        culprit_info = self.binary_search(primary_mods, group_map, 2)
+                    
+                    # Fallback to 3 if second search fails
+                    if not culprit_info and not self.scan_cancelled:
+                        self.log("Unable to isolate 2 culprits. Falling back to 3-culprit resolution...", "WARNING")
+                        messagebox.showwarning("Debug Fallback", "Unable to isolate a 2-mod/group interaction.\n\nFalling back to identify an interaction between 3.")
+                        culprit_info = self.binary_search(primary_mods, group_map, 3)
+
+            if self.scan_cancelled:
+                 self.log("Debug scan cancelled by user.", "WARNING")
+            elif culprit_info:
+                self.log(f"CULPRIT(S) IDENTIFIED: {culprit_info}", "ERROR")
+                messagebox.showinfo("Debug Complete", f"Problematic mod(s) found:\n\n{culprit_info}\n\nAll mods have been restored.")
+            else:
+                self.log("No specific culprit(s) identified.", "WARNING")
+                messagebox.showerror("Debug Failed", "Unable to isolate the problematic mod(s) even with fallback methods.\nThe issue may be a complex interaction between multiple mod groups.")
+        
+        finally:
+            # This block is GUARANTEED to run, ensuring a clean state.
+            self.log("Restoring all mods and cleaning up...", "INFO")
+            for mod in self.current_test_group:
+                src = self.temp_dir / mod
+                dest = mods_dir / mod
+                if src.exists():
+                    shutil.move(str(src), str(dest))
+            
+            if self.temp_dir.exists():
+                shutil.rmtree(self.temp_dir)
+
+            self.active_scan = False
+            self.start_btn.configure(state="normal")
+            self.log("Cleanup complete. Ready for next session.", "SUCCESS")
+
+
+    def binary_search(self, primary_mods, group_map, target_count):
+        current_primary_mods = primary_mods[:]
+
+        while len(current_primary_mods) > target_count and not self.scan_cancelled:
+            mid = len(current_primary_mods) // 2
+            group_a_primary = current_primary_mods[:mid]
+            group_b_primary = current_primary_mods[mid:]
+
+            # Flatten the primary mods into a unique set of actual mod files for testing
+            mods_to_test_in_a = set()
+            for primary_mod in group_a_primary:
+                mods_to_test_in_a.update(group_map[primary_mod])
+
+            self.log(f"Testing Group A ({len(mods_to_test_in_a)} mods from {len(group_a_primary)} primary groups)...", "INFO")
+            test_result = self.test_group(list(mods_to_test_in_a))
+            
+            if test_result is None: # User cancelled
                 return None
 
             if test_result:
                 self.log("Group A passed - focusing on Group B", "SUCCESS")
-                current_group = group_b
+                current_primary_mods = group_b_primary
             else:
                 self.log("Group A failed - focusing on Group A", "ERROR")
-                current_group = group_a
+                current_primary_mods = group_a_primary
         
         if self.scan_cancelled:
             return None
+        
+        if len(current_primary_mods) > target_count:
+            self.log(f"Could not isolate to {target_count} primary mod(s). Smallest set is {len(current_primary_mods)}.", "INFO")
+            return None
 
-        if len(current_group) == target_count:
-            test_result = self.test_group(current_group)
-            if test_result is None: return None
-            if not test_result:
-                return f"Problematic group ({target_count} mods): {', '.join(current_group)}"
-        
-        # Further fallback
-        if target_count == 2 and len(mods) > 3 and not self.scan_cancelled:
-            self.log("Unable to isolate 2 mods. Falling back to 3-mod resolution...", "WARNING")
-            messagebox.showwarning("Debug Fallback", "Unable to isolate 2 problematic mods.\n\nFalling back to identify 3 problematic mods.")
-            return self.binary_search_fallback(mods, 3)
-        elif target_count == 3:
-            self.log("Debug session failed - unable to isolate problematic mods", "ERROR")
-            messagebox.showerror("Debug Failed", "Unable to isolate problematic mods even with fallback methods.\n\nThe issue may be more complex than a simple mod conflict.")
-        
+        # Final verification
+        final_mods_to_test = set()
+        for primary_mod in current_primary_mods:
+            final_mods_to_test.update(group_map[primary_mod])
+
+        self.log(f"Final test on suspected culprit(s) ({len(final_mods_to_test)} mods from {len(current_primary_mods)} groups)...", "INFO")
+        final_test_result = self.test_group(list(final_mods_to_test))
+
+        if final_test_result is None: # User cancelled
+            return None
+
+        if not final_test_result: # It crashed, we found the culprit(s).
+            return f"{', '.join(sorted(list(final_mods_to_test)))}"
+
+        self.log(f"Final test passed. Could not isolate the issue.", "WARNING")
         return None
-        
-    def split_with_dependencies(self, mods, split_point):
-        set_a = set(mods[:split_point])
-        set_b = set(mods[split_point:])
-        
-        pass_count = 0
-        while True:
-            pass_count += 1
-            self.log(f"Resolving dependencies... Pass {pass_count}", "PROGRESS")
-
-            # Create sets of mods that need to be moved in this pass
-            to_move_to_a = set()
-            to_move_to_b = set()
-
-            # Check Group A's mods for dependencies that are in Group B
-            for mod in set_a:
-                if mod in self.project_data["dependencies"]:
-                    for dep in self.project_data["dependencies"][mod]:
-                        if dep in set_b:
-                            to_move_to_a.add(dep)
-
-            # Check Group B's mods for dependencies that are in Group A
-            for mod in set_b:
-                if mod in self.project_data["dependencies"]:
-                    for dep in self.project_data["dependencies"][mod]:
-                        if dep in set_a:
-                            to_move_to_b.add(dep)
-            
-            # If no mods need to be moved, the groups are stable and we can exit
-            if not to_move_to_a and not to_move_to_b:
-                break
-            
-            # Perform the moves using efficient set operations
-            set_a.update(to_move_to_a)
-            set_b.difference_update(to_move_to_a)
-            
-            set_b.update(to_move_to_b)
-            set_a.difference_update(to_move_to_b)
-            
-            # Failsafe to prevent infinite loops in case of circular dependencies
-            if pass_count > len(mods):
-                self.log("Potential circular dependency detected or complex split. Breaking resolution.", "WARNING")
-                break
-        
-        return list(set_a), list(set_b)
         
     def test_group(self, mods):
         mods_dir = Path(self.project_data["mods_dir"])
         
-        # Clear mods folder
-        for mod in self.current_test_group:
-            mod_path = mods_dir / mod
-            if mod_path.exists():
-                shutil.move(str(mod_path), str(self.temp_dir / mod))
-        
-        # Move test mods in
+        # Clear mods dir of any files from the original test group.
+        # This is safer than just clearing the previous test's mods.
+        for item in mods_dir.iterdir():
+            if item.is_file() and item.name in self.current_test_group:
+                shutil.move(str(item), str(self.temp_dir / item.name))
+
+        # Move current test mods in
         for mod in mods:
             src = self.temp_dir / mod
             dest = mods_dir / mod
             if src.exists():
                 shutil.move(str(src), str(dest))
         
-        # Wait for user input
         result = self.wait_for_test_result(len(mods))
         
         return result
