@@ -27,15 +27,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-    - name: Read version from file
-      id: get_version
-      run: |
-        V=$(sed 's/[[:space:]]//g' version)
-        if [ -z "$V" ]; then
-          echo "Error: Version file is empty or invalid"
-          exit 1
-        fi
-        echo "VERSION=$V" >> $GITHUB_ENV
+      - name: Read version from file
+        id: get_version
+        run: |
+          V=$(sed 's/[[:space:]]//g' version)
+          if [ -z "$V" ]; then
+            echo "Error: Version file is empty or invalid"
+            exit 1
+          fi
+          echo "VERSION=$V" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
