@@ -27,10 +27,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read version from file
-        id: get_version
-        run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
-        shell: bash
+    - name: Read version from file
+      id: get_version
+      run: |
+        V=$(sed 's/[[:space:]]//g' version)
+        if [ -z "$V" ]; then
+          echo "Error: Version file is empty or invalid"
+          exit 1
+        fi
+        echo "VERSION=$V" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -95,6 +100,12 @@ jobs:
             COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ env.VERSION }}"
             BODY="See the changes made since the last release: [${PREVIOUS_TAG}...${{ env.VERSION }}](${COMPARE_URL})"
           fi
+
+          if [ -f vernotes ] && [ -s vernotes ] && grep -q '[^[:space:]]' vernotes; then
+            ADDITIONAL=$(cat vernotes)
+            BODY="$BODY"$'\n\n'"$ADDITIONAL"
+          fi
+
           echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
           echo "$BODY" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV

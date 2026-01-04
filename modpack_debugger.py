@@ -54,9 +54,26 @@ class ModpackDebuggerKit(ctk.CTk):
         super().__init__()
         
         self.title("Modpack Debugger Kit")
-        self.geometry("1200x824")
-        self.minsize(1000, 700)
         
+        # --- Screen-Based UI Scaling Logic ---
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+
+        base_w, base_h = 1200, 824
+
+        if base_w > screen_w * 0.9 or base_h > screen_h * 0.9:
+            scaling_factor = min((screen_w * 0.9) / base_w, (screen_h * 0.9) / base_h)
+
+            ctk.set_window_scaling(scaling_factor)
+            ctk.set_widget_scaling(scaling_factor)
+
+            self.geometry(f"{int(base_w * scaling_factor)}x{int(base_h * scaling_factor)}")
+            self.minsize(int(1000 * scaling_factor), int(700 * scaling_factor))
+        else:
+            self.geometry(f"{base_w}x{base_h}")
+            self.minsize(1000, 700)
+        # -------------------------------------
+
         self.temp_dir = Path(__file__).parent / "temp_mods"
         self.project_data = self.get_default_project_data()
         self.active_scan = False
@@ -79,6 +96,7 @@ class ModpackDebuggerKit(ctk.CTk):
             "latest_snapshot": None,
             "dependencies": {},
             "saved_new_mods": [],
+            "dismissed_hanging_libs": [],
             "theme": "dark"
         }
     
@@ -835,6 +853,7 @@ class ModpackDebuggerKit(ctk.CTk):
         
         mods_dir = Path(self.project_data["mods_dir"])
         current_mods = set(f.name for f in mods_dir.iterdir() if f.is_file() and f.suffix == ".jar")
+        dismissed = set(self.project_data.get("dismissed_hanging_libs", []))
         
         all_needed_deps = set()
         
@@ -848,7 +867,7 @@ class ModpackDebuggerKit(ctk.CTk):
         for mod, deps in self.project_data["dependencies"].items():
             if mod not in current_mods:
                 for dep in deps:
-                    if dep not in all_needed_deps and dep in current_mods:
+                    if dep not in all_needed_deps and dep in current_mods and dep not in dismissed:
                         hanging.append(dep)
         
         self.hanging_libraries = list(set(hanging))
@@ -868,7 +887,7 @@ class ModpackDebuggerKit(ctk.CTk):
         
         dialog = ctk.CTkToplevel(self)
         dialog.title("Hanging Libraries Manager")
-        dialog.geometry("600x500")
+        dialog.geometry("700x500")
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text="⚠️ Hanging Library Mods", 
@@ -888,39 +907,53 @@ class ModpackDebuggerKit(ctk.CTk):
         
         def delete_selected():
             to_delete = [lib for lib, var in lib_vars.items() if var.get()]
-            
+
             if not to_delete:
-                messagebox.showinfo("Info", "No libraries selected for deletion")
+                messagebox.showinfo("Info", "No libraries selected")
                 return
             
-            response = messagebox.askyesno(
-                "Confirm Deletion",
-                f"Delete {len(to_delete)} hanging library mod(s)?\nThis will permanently remove them from your mods folder."
-            )
-            
-            if response:
+            if messagebox.askyesno("Confirm Deletion", f"Delete {len(to_delete)} mod(s) permanently?"):
                 mods_dir = Path(self.project_data["mods_dir"])
                 for lib in to_delete:
                     lib_path = mods_dir / lib
                     if lib_path.exists():
                         lib_path.unlink()
                         self.log(f"Deleted hanging library: {lib}", "WARNING")
-                
+
                 self.update_hanging_libraries()
                 self.mark_modified()
                 dialog.destroy()
-                
                 if self.hanging_libraries:
                     self.show_hanging_libraries()
+
+        def dismiss_selected():
+            to_dismiss = [lib for lib, var in lib_vars.items() if var.get()]
+            if not to_dismiss:
+                messagebox.showinfo("Info", "No libraries selected")
+                return
+
+            if messagebox.askyesno("Confirm Dismiss", "Ignore these warnings? The files will stay, but you won't be warned again for these files."):
+                if "dismissed_hanging_libs" not in self.project_data:
+                    self.project_data["dismissed_hanging_libs"] = []
+                self.project_data["dismissed_hanging_libs"].extend(to_dismiss)
+                self.update_hanging_libraries()
+                self.mark_modified()
+                dialog.destroy()
+                if self.hanging_libraries: self.show_hanging_libraries()
         
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         btn_frame.pack(pady=15)
         
         ctk.CTkButton(btn_frame, text="🗑️ Delete Selected", 
-                     command=delete_selected, width=150,
-                     fg_color="darkred").pack(side="left", padx=10)
+                     command=delete_selected, width=140,
+                     fg_color="darkred").pack(side="left", padx=5)
+
+        ctk.CTkButton(btn_frame, text="🙈 Dismiss Selected",
+                     command=dismiss_selected, width=140,
+                     fg_color="#555555").pack(side="left", padx=5)
+
         ctk.CTkButton(btn_frame, text="Cancel", 
-                     command=dialog.destroy, width=150).pack(side="left", padx=10)
+                     command=dialog.destroy, width=140).pack(side="left", padx=5)
     
     def show_new_mods_options_dialog(self, new_mods):
         """Show dialog with options for handling detected new mods"""
