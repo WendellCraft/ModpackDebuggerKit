@@ -1,0 +1,3 @@
+- Added Button to Ignore Specific Hanging Library Warnings
+- Shortened the text that confirms if you want to delete hanging libraries
+- Implemented UI Scaling Based on Screen Size, To Prevent Overly Large GUIs on Smaller Monitors/Screens
