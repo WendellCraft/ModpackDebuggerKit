@@ -29,6 +29,7 @@ jobs:
 
       - name: Read version from file
         id: get_version
+        shell: bash
         run: |
           V=$(sed 's/[[:space:]]//g' version)
           if [ -z "$V" ]; then
@@ -43,20 +44,24 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt
 
       - name: Build with PyInstaller
+        shell: bash
         run: pyinstaller modpack_debugger.py --name ModpackDebuggerKit --noconsole
 
       - name: Zip the build (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: Compress-Archive -Path dist/ModpackDebuggerKit -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
 
       - name: Zip the build (Linux/macOS)
         if: runner.os != 'Windows'
+        shell: bash
         run: |
           cd dist
           zip -r ../ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip ModpackDebuggerKit
@@ -81,8 +86,8 @@ jobs:
 
       - name: Read version from file
         id: get_version
-        run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
         shell: bash
+        run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -91,6 +96,7 @@ jobs:
 
       - name: Generate Release Body
         id: generate_body
+        shell: bash
         run: |
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           
@@ -109,7 +115,6 @@ jobs:
           echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
           echo "$BODY" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
-        shell: bash
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
