@@ -54,9 +54,26 @@ class ModpackDebuggerKit(ctk.CTk):
         super().__init__()
         
         self.title("Modpack Debugger Kit")
-        self.geometry("1200x824")
-        self.minsize(1000, 700)
         
+        # --- Screen-Based UI Scaling Logic ---
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+
+        base_w, base_h = 1200, 824
+
+        if base_w > screen_w * 0.9 or base_h > screen_h * 0.9:
+            scaling_factor = min((screen_w * 0.9) / base_w, (screen_h * 0.9) / base_h)
+
+            ctk.set_window_scaling(scaling_factor)
+            ctk.set_widget_scaling(scaling_factor)
+
+            self.geometry(f"{int(base_w * scaling_factor)}x{int(base_h * scaling_factor)}")
+            self.minsize(int(1000 * scaling_factor), int(700 * scaling_factor))
+        else:
+            self.geometry(f"{base_w}x{base_h}")
+            self.minsize(1000, 700)
+        # -------------------------------------
+
         self.temp_dir = Path(__file__).parent / "temp_mods"
         self.project_data = self.get_default_project_data()
         self.active_scan = False
