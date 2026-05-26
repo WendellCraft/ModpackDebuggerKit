@@ -564,6 +564,7 @@ class ModpackDebuggerKit(ctk.CTk):
         dep_window = ctk.CTkToplevel(self)
         dep_window.title("Dependency Manager")
         dep_window.geometry("750x550")
+        dep_window.wait_visibility()
         dep_window.grab_set()
 
         ctk.CTkLabel(dep_window, text="Mod Dependency Manager",
