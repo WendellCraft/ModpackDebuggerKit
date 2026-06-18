@@ -420,8 +420,12 @@ class ModpackDebuggerKit(ctk.CTk):
 
                 found_dependencies = []
                 
-                # Use a set to prevent checking the same project multiple times
-                projects_to_check = set(d.get('project_id') for d in dependencies if d.get('project_id'))
+                # Use a set to prevent checking the same project multiple times, keeping ONLY required dependencies
+                projects_to_check = set(
+                    d.get('project_id') 
+                    for d in dependencies 
+                    if d.get('project_id') and d.get('dependency_type') == 'required'
+                )
 
                 for project_id in projects_to_check:
                     if self.sync_cancelled: return
