@@ -697,6 +697,7 @@ class ModpackDebuggerKit(ctk.CTk):
         dialog = ctk.CTkToplevel(parent_window)
         dialog.title("Add Dependency")
         dialog.geometry("650x864")
+        dialog.wait_visibility()
         dialog.grab_set()
         
         # Multiple selection checkbox
@@ -889,6 +890,7 @@ class ModpackDebuggerKit(ctk.CTk):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Hanging Libraries Manager")
         dialog.geometry("700x500")
+        dialog.wait_visibility()
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text="⚠️ Hanging Library Mods", 
@@ -961,6 +963,7 @@ class ModpackDebuggerKit(ctk.CTk):
         dialog = ctk.CTkToplevel(self)
         dialog.title("New Mods Detected")
         dialog.geometry("500x400")
+        dialog.wait_visibility()
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text=f"🎉 {len(new_mods)} New Mods Detected", 
@@ -1012,6 +1015,7 @@ class ModpackDebuggerKit(ctk.CTk):
         dialog = ctk.CTkToplevel(self)
         dialog.title(title)
         dialog.geometry("600x500")
+        dialog.wait_visibility()
         dialog.grab_set()
         
         ctk.CTkLabel(dialog, text=f"{title} ({len(mods)} mods)", 
@@ -1260,6 +1264,7 @@ class ModpackDebuggerKit(ctk.CTk):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Test Launch")
         dialog.geometry("500x300")
+        dialog.wait_visibility()
         dialog.grab_set()
         dialog.protocol("WM_DELETE_WINDOW", lambda: None)
         
