@@ -2,8 +2,6 @@ name: Build and Release MDK
 
 on:
   push:
-    branches:
-      - main
     paths:
       - 'version'
       - '.github/workflows/build-and-release.yml'
@@ -72,54 +70,164 @@ jobs:
           name: ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}
           path: ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
 
-  create-release:
+  release:
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Read version from file
-        id: get_version
+      - name: Normalize version info
+        id: version
         shell: bash
-        run: echo "VERSION=$(cat version)" >> $GITHUB_ENV
+        run: |
+          VERSION=$(sed 's/[[:space:]]//g' version)
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?(-(alpha|beta|rc)\.[0-9]+)?$'; then
+            echo "Invalid VERSION format: $VERSION"
+            echo "Expected formats: 0.1, 1.0.5, 1.2-rc.1, 2.0.1-beta.3, 2.1-alpha.4"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [[ $VERSION =~ -(alpha|beta|rc)\.[0-9]+$ ]]; then
+            TYPE_UPPER=$(echo "${BASH_REMATCH[1]}" | tr '[:lower:]' '[:upper:]')
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "release_banner=🚨 ${TYPE_UPPER} RELEASE (pre-release)" >> $GITHUB_OUTPUT
+            if [ "$TYPE_UPPER" = "BETA" ]; then
+              ARTICLE="a"
+            else
+              ARTICLE="an"
+            fi
+            echo "release_notice=This is ${ARTICLE} ${TYPE_UPPER} pre-release. Do not use in production." >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "release_banner=📦 RELEASE" >> $GITHUB_OUTPUT
+            echo "release_notice=This is an official release." >> $GITHUB_OUTPUT
+          fi
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "Tag already exists: $VERSION"
+            exit 1
+          fi
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
-      - name: Generate Release Body
-        id: generate_body
+      - name: Generate changelog
+        id: changelog
         shell: bash
         run: |
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
-          if [ -z "$PREVIOUS_TAG" ]; then
-            BODY="This is the first release of Modpack Debugger Kit."
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}"
+          if [ "${{ steps.version.outputs.is_prerelease }}" = "true" ]; then
+            LATEST_EARLY=$(git tag --sort=-creatordate | grep -v "${{ steps.version.outputs.version }}" | grep -E '\-(alpha|beta|rc)\.[0-9]+$' | head -n1 || true)
+            LATEST_RELEASE=$(git tag --sort=-creatordate | grep -v "${{ steps.version.outputs.version }}" | grep -Ev '\-(alpha|beta|rc)\.[0-9]+$' | head -n1 || true)
+            if [ -n "$LATEST_EARLY" ] && [ -n "$LATEST_RELEASE" ]; then
+              EARLY_DATE=$(git for-each-ref --format='%(creatordate:unix)' "refs/tags/$LATEST_EARLY")
+              RELEASE_DATE=$(git for-each-ref --format='%(creatordate:unix)' "refs/tags/$LATEST_RELEASE")
+              if [ "$RELEASE_DATE" -ge "$EARLY_DATE" ]; then
+                PREV_TAG="$LATEST_RELEASE"
+              else
+                PREV_TAG="$LATEST_EARLY"
+              fi
+            else
+              PREV_TAG="$LATEST_EARLY$LATEST_RELEASE"
+            fi
           else
-            COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ env.VERSION }}"
-            BODY="See the changes made since the last release: [${PREVIOUS_TAG}...${{ env.VERSION }}](${COMPARE_URL})"
+            PREV_TAG=$(git tag --sort=-creatordate | grep -v "${{ steps.version.outputs.version }}" | grep -Ev '\-(alpha|beta|rc)\.[0-9]+$' | head -n1 || true)
           fi
-
-          if [ -f vernotes ] && [ -s vernotes ] && grep -q '[^[:space:]]' vernotes; then
-            ADDITIONAL=$(cat vernotes)
-            BODY="$BODY"$'\n\n'"$ADDITIONAL"
+          CHANGES_FILE="/tmp/changelog_lines.txt"
+          > "$CHANGES_FILE"
+          if [ -n "$PREV_TAG" ]; then
+            LOG_RANGE="$PREV_TAG..HEAD"
+          else
+            LOG_RANGE="HEAD"
           fi
+          declare -A SECTION_FILES
+          SECTION_FILES[Features]="/tmp/ch_feat.txt"
+          SECTION_FILES[Fixes]="/tmp/ch_fix.txt"
+          SECTION_FILES[Docs]="/tmp/ch_docs.txt"
+          SECTION_FILES[Perf]="/tmp/ch_perf.txt"
+          SECTION_FILES[Refactor]="/tmp/ch_refactor.txt"
+          SECTION_FILES[Style]="/tmp/ch_style.txt"
+          SECTION_FILES[Tests]="/tmp/ch_tests.txt"
+          SECTION_FILES[Chores]="/tmp/ch_chores.txt"
+          SECTION_FILES[Reverts]="/tmp/ch_revert.txt"
+          SECTION_FILES[Build]="/tmp/ch_build.txt"
+          SECTION_FILES[CI]="/tmp/ch_ci.txt"
+          SECTION_FILES[Other]="/tmp/ch_other.txt"
+          for f in "${SECTION_FILES[@]}"; do > "$f"; done
+          COMMIT_LINES=$(git log --pretty=format:'%h%x09%s' $LOG_RANGE)
+          if [ -z "$COMMIT_LINES" ]; then
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            echo "This release has no changes." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "$COMMIT_LINES" | while IFS=$'\t' read -r h s; do
+            type=$(echo "$s" | sed -nE 's/^([a-zA-Z-]+)(\([^)]*\))?:.*/\1/p' | tr '[:upper:]' '[:lower:]' || echo "other")
+            desc=$(echo "$s" | sed -E 's/^([a-zA-Z-]+)(\([^)]*\))?:\s*(.*)$/\3/' | sed 's/^[|]//')
+            if [ -z "$desc" ]; then desc="$s"; fi
+            desc=$(echo "$desc" | sed -E "s|#([0-9]+)|[#\1]($REPO_URL/issues/\1)|g")
+            line="- $desc ([${h}]($REPO_URL/commit/${h}))"
+            case "$type" in
+              feat|feature) echo "$line" >> "${SECTION_FILES[Features]}" ;;
+              fix) echo "$line" >> "${SECTION_FILES[Fixes]}" ;;
+              docs|doc) echo "$line" >> "${SECTION_FILES[Docs]}" ;;
+              perf|performance) echo "$line" >> "${SECTION_FILES[Perf]}" ;;
+              refactor) echo "$line" >> "${SECTION_FILES[Refactor]}" ;;
+              style) echo "$line" >> "${SECTION_FILES[Style]}" ;;
+              test|tests) echo "$line" >> "${SECTION_FILES[Tests]}" ;;
+              chore|chores) echo "$line" >> "${SECTION_FILES[Chores]}" ;;
+              revert|reverts) echo "$line" >> "${SECTION_FILES[Reverts]}" ;;
+              build) echo "$line" >> "${SECTION_FILES[Build]}" ;;
+              ci|actions-workflow) echo "$line" >> "${SECTION_FILES[CI]}" ;;
+              *) echo "$line" >> "${SECTION_FILES[Other]}" ;;
+            esac
+          done
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Changes since $PREV_TAG" >> $GITHUB_OUTPUT
+          else
+            if [ "${{ steps.version.outputs.is_prerelease }}" == "true" ]; then
+              echo "## First Early Release" >> $GITHUB_OUTPUT
+            else
+              echo "## First Release" >> $GITHUB_OUTPUT
+            fi
+          fi
+          echo "" >> $GITHUB_OUTPUT
+          for section in Features Fixes Docs Perf Refactor Style Tests Chores Reverts Build CI Other; do
+            file="${SECTION_FILES[$section]}"
+            if [ -s "$file" ]; then
+              echo "### $section" >> $GITHUB_OUTPUT
+              cat "$file" >> $GITHUB_OUTPUT
+              echo "" >> $GITHUB_OUTPUT
+            fi
+          done
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
-          echo "$BODY" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.VERSION }}
-          name: ${{ env.VERSION }}
-          body: ${{ env.RELEASE_BODY }}
-          files: artifacts/*/*.zip
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          body: |
+            ${{ steps.version.outputs.release_banner }}
+            ${{ steps.version.outputs.release_notice }}
+            ### Build Information
+            - Version: ${{ steps.version.outputs.version }}
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref_name }}
+            - Built: ${{ github.event.head_commit.timestamp }}
+            ${{ steps.changelog.outputs.changelog }}
+          files: |
+            artifacts/*/*.zip
+          draft: false
+          prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
