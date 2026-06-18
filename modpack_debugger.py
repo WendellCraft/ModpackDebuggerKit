@@ -426,15 +426,17 @@ class ModpackDebuggerKit(ctk.CTk):
                     project_versions = _get_project_versions(project_id)
                     
                     if project_versions:
+                        found_for_project = False
                         for version in project_versions:
+                            if found_for_project:
+                                break
                             for file_info in version.get('files', []):
                                 dependency_hash = file_info.get('hashes', {}).get('sha1')
                                 # Check if the dependency's file is one of the mods currently in the folder
                                 if dependency_hash in hash_to_filename:
                                     found_dependencies.append(hash_to_filename[dependency_hash])
-                                    break 
-                            if hash_to_filename.get(dependency_hash):
-                                 break
+                                    found_for_project = True
+                                    break
 
                 if found_dependencies:
                     # Add only new, unique dependencies
