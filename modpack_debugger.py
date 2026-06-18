@@ -86,6 +86,7 @@ class ModpackDebuggerKit(ctk.CTk):
         self.project_modified = False
         self.sync_thread = None
         self.sync_cancelled = False
+        self.last_log_level = None
         
         self.setup_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -243,19 +244,20 @@ class ModpackDebuggerKit(ctk.CTk):
         self.log_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         
     def log(self, message, level="INFO"):
-        def _update_log_widget():
-            if level == "PROGRESS":
-                # Delete the previous progress line
-                self.log_text.delete("end-2l", "end-1l")
-            
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            prefix = {"INFO": "ℹ️", "SUCCESS": "✅", "ERROR": "❌", "WARNING": "⚠️", "PROGRESS": "⏳"}.get(level, "•")
-            
-            self.log_text.insert("end", f"[{timestamp}] {prefix} {message}\n")
-            self.log_text.see("end")
-
-        # Schedule the GUI update to run on the main thread
-        self.after(0, _update_log_widget)
+            def _update_log_widget():
+                # Only delete the previous line if it was ALSO a progress message
+                if level == "PROGRESS" and getattr(self, "last_log_level", None) == "PROGRESS":
+                    self.log_text.delete("end-2l", "end-1l")
+                
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                prefix = {"INFO": "ℹ️", "SUCCESS": "✅", "ERROR": "❌", "WARNING": "⚠️", "PROGRESS": "⏳"}.get(level, "•")
+                
+                self.log_text.insert("end", f"[{timestamp}] {prefix} {message}\n")
+                self.log_text.see("end")
+                self.last_log_level = level  # Store the level for the next call
+    
+            # Schedule the GUI update to run on the main thread
+            self.after(0, _update_log_widget)
         
     def toggle_theme(self):
         current = ctk.get_appearance_mode()
