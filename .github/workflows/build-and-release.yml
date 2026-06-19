@@ -50,7 +50,11 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          sudo mkdir -p /usr/local/lib/pkgconfig
+          printf 'prefix=/usr\nexec_prefix=${prefix}\nlibdir=/usr/lib\nincludedir=${prefix}/include\n\nName: WebKitGTK\nDescription: Web content engine for GTK\nURL: https://webkitgtk.org\nVersion: 2.52.3\nRequires: glib-2.0 gtk+-3.0 libsoup-3.0 javascriptcoregtk-4.1\nLibs: -L${libdir} -lwebkit2gtk-4.1\nCflags: -I${includedir}/webkitgtk-4.1\n' | sudo tee /usr/local/lib/pkgconfig/webkit2gtk-4.0.pc > /dev/null
+          export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Build with Wails
         shell: bash
