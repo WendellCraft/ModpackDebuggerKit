@@ -926,6 +926,29 @@ func (a *App) CancelScan() {
 
 // --- Utility ---
 
+func (a *App) ExportLogsToFile(logs string) error {
+	filePath, err := wailsRuntime.SaveFileDialog(a.ctx, wailsRuntime.SaveDialogOptions{
+		Title:           "Export Logs",
+		DefaultFilename: "log_export.txt",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "Text Files", Pattern: "*.txt"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if filePath == "" {
+		return nil
+	}
+
+	if err := os.WriteFile(filePath, []byte(logs), 0644); err != nil {
+		return fmt.Errorf("error writing log file: %w", err)
+	}
+
+	a.emitLog(fmt.Sprintf("Logs exported to %s", filepath.Base(filePath)), LogSuccess)
+	return nil
+}
+
 func (a *App) ShowMessageDialog(title, message, dialogType string) (string, error) {
 	var msgType wailsRuntime.DialogType
 	switch dialogType {

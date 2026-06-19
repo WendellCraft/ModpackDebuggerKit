@@ -713,6 +713,21 @@ document.getElementById("start-debug-btn").addEventListener("click", async funct
     }
 });
 
+// Export Logs
+document.getElementById("export-logs-btn").addEventListener("click", async function() {
+    const entries = document.querySelectorAll("#log-area .log-entry");
+    const text = Array.from(entries).map(function(e) { return e.textContent; }).join("\n");
+    if (!text.trim()) {
+        await showInfo("Info", "No logs to export.");
+        return;
+    }
+    try {
+        await window.go.main.App.ExportLogsToFile(text);
+    } catch (err) {
+        await showError("Error", err);
+    }
+});
+
 // Utility
 function escapeHtml(str) {
     if (!str) return "";
