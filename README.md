@@ -1,6 +1,6 @@
 # Modpack Debugger Kit
 
-The Modpack Debugger Kit is a Python application designed to help creators of modpacks easily find mods causing crashes along with various small other helpful features.
+The Modpack Debugger Kit is a Go (Wails v2) application designed to help creators of modpacks easily find mods causing crashes along with various small other helpful features.
 
 ## Features
 
@@ -17,7 +17,12 @@ The Modpack Debugger Kit is a Python application designed to help creators of mo
 
 ## Prerequisites
 
-To run this application from source, you need Python installed (3.11+ recommended). You also need pip installed.
+- **Go 1.23+** - [Download](https://go.dev/dl/)
+- **Wails v2.12.0** - Install via `go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0`
+- **Platform-specific dependencies:**
+  - **Linux:** `libgtk-3-dev`, `libwebkit2gtk-4.0-dev`
+  - **macOS:** Xcode Command Line Tools
+  - **Windows:** WebView2 Runtime (pre-installed on Windows 11)
 
 If you plan to run from the executable and not the source you should not need any prerequisites.
 
@@ -30,25 +35,31 @@ Run it!
 
 ### Option 2: Running from Source
 
-1.  **Clone the Repository (or download the files):**
+1.  **Clone the Repository:**
 
     ```bash
     git clone https://github.com/WendellCraft/ModpackDebuggerKit.git
     cd ModpackDebuggerKit
     ```
 
-2.  **Install Dependencies:**
-
-    This application relies on various dependencies. Install them using pip:
+2.  **Build:**
 
     ```bash
-    pip install -r requirements.txt
+    wails build
     ```
 
-3.  **Run the Application:**
+    The binary will be at `build/bin/ModpackDebuggerKit`.
+
+    Or use the Makefile:
 
     ```bash
-    python modpack_debugger.py
+    make build
+    ```
+
+3.  **Run in dev mode (with hot-reload):**
+
+    ```bash
+    wails dev
     ```
 
 ## Usage Guide
@@ -100,10 +111,11 @@ For accurate binary searching, it is crucial to tell the tool which mods require
 
 ## Technical Details
 
-The application uses the following directory structure:
+The application uses Wails v2 (Go backend + HTML/JS/CSS frontend) with the following directories:
 
-*   `modpack_debugger.py` (The main script)
-*   `temp_mods/` (Created automatically to temporarily hold mods during testing)
+*   `main.go`, `app.go`, `debug.go`, `modrinth.go`, `types.go` (Go backend source)
+*   `frontend/dist/` (Frontend HTML, JavaScript, and CSS)
+*   `build/` (Build output)
 *   `[ProjectName].json` (Saved project files, containing settings and dependency rules)
 
 ## Star History

@@ -1,2 +1,0 @@
-customtkinter==5.2.2
-requests==2.32.5

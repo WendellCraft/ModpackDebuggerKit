@@ -36,33 +36,37 @@ jobs:
           fi
           echo "VERSION=$V" >> $GITHUB_ENV
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          python-version: '3.11'
+          go-version: '1.23'
 
-      - name: Install dependencies
+      - name: Install Wails CLI
+        shell: bash
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
 
-      - name: Build with PyInstaller
+      - name: Build with Wails
         shell: bash
-        run: pyinstaller modpack_debugger.py --name ModpackDebuggerKit --noconsole
+        run: wails build
 
       - name: Zip the build (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path dist/ModpackDebuggerKit -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
+        run: Compress-Archive -Path build/bin/ModpackDebuggerKit.exe -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
 
       - name: Zip the build (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          cd dist
-          zip -r ../ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip ModpackDebuggerKit
+          cd build/bin
+          zip -r ../../ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip ModpackDebuggerKit
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -230,4 +234,4 @@ jobs:
           draft: false
           prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

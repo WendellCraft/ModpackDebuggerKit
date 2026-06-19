@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Modpack Debugger Kit</title>
+    <link rel="stylesheet" href="./src/style.css"/>
+</head>
+<body>
+    <div id="app">
+        <header id="header">
+            <h1 id="title">Modpack Debugger Kit</h1>
+            <button id="theme-btn">Theme</button>
+        </header>
+
+        <main id="main">
+            <aside id="sidebar">
+                <div class="panel">
+                    <h3 class="panel-title">Project Management</h3>
+                    <div class="btn-row">
+                        <button class="btn" id="new-project-btn">New Project</button>
+                        <button class="btn" id="load-project-btn">Load Project</button>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn" id="save-project-btn">Save Project</button>
+                        <button class="btn" id="save-as-btn" disabled>Save As</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3 class="panel-title">Mod Folder</h3>
+                    <div id="folder-label">No folder selected</div>
+                    <button class="btn" id="select-folder-btn">Select Mod Folder</button>
+                </div>
+
+                <div class="panel">
+                    <h3 class="panel-title">New Mod Tracker</h3>
+                    <div class="btn-grid">
+                        <button class="btn" id="create-snapshot-btn">Create Snapshot</button>
+                        <button class="btn" id="detect-new-mods-btn">Detect New Mods</button>
+                        <button class="btn" id="access-saved-btn" disabled>Saved New Mods</button>
+                        <button class="btn" id="hanging-libs-btn">Hanging Libraries</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3 class="panel-title">Mod Dependencies</h3>
+                    <button class="btn" id="manage-deps-btn">Manage Dependencies</button>
+                </div>
+            </aside>
+
+            <section id="content">
+                <div class="panel" id="debug-mode-panel">
+                    <h3 class="panel-title">Debug Mode</h3>
+                    <div id="mode-selection">
+                        <label class="radio-label">
+                            <input type="radio" name="mode" value="all" checked/>
+                            Mode 1: All Mods (Binary Search)
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="mode" value="specific"/>
+                            Mode 2: Specific New Mods
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" id="start-debug-btn">Start Debug</button>
+                </div>
+
+                <div class="panel" id="log-panel">
+                    <h3 class="panel-title">Debug Log</h3>
+                    <div id="log-area"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-content">
+            <div id="modal-header">
+                <h3 id="modal-title"></h3>
+                <button id="modal-close-btn">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+            <div id="modal-footer"></div>
+        </div>
+    </div>
+
+    <script src="./src/main.js"></script>
+</body>
+</html>

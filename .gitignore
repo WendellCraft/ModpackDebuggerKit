@@ -1,2 +1,13 @@
 test_project.json
-vernotes
+temp_mods/
+build/
+frontend/wailsjs/
+*.exe
+*.app
+*.AppImage
+*.tar.gz
+.idea/
+.vscode/
+*.swp
+*.swo
+.env
