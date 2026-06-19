@@ -56,21 +56,55 @@ jobs:
           export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> $GITHUB_ENV
 
+      - name: Install MinGW (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: choco install mingw -y --no-progress
+
       - name: Build with Wails
         shell: bash
         run: wails build
 
       - name: Zip the build (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: Compress-Archive -Path build/bin/ModpackDebuggerKit.exe -DestinationPath ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
-
-      - name: Zip the build (Linux/macOS)
-        if: runner.os != 'Windows'
         shell: bash
         run: |
           cd build/bin
-          zip -r ../../ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip ModpackDebuggerKit
+          if [ -f ModpackDebuggerKit.exe ]; then
+            7z a -tzip ../../ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip ModpackDebuggerKit.exe
+          else
+            echo "ERROR: ModpackDebuggerKit.exe not found"
+            ls -la
+            exit 1
+          fi
+
+      - name: Zip the build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd build/bin
+          if [ -d ModpackDebuggerKit.app ]; then
+            zip -r ../../ModpackDebuggerKit_${{ env.VERSION }}_macOS.zip ModpackDebuggerKit.app
+          elif [ -f ModpackDebuggerKit ]; then
+            zip -r ../../ModpackDebuggerKit_${{ env.VERSION }}_macOS.zip ModpackDebuggerKit
+          else
+            echo "ERROR: Neither ModpackDebuggerKit.app nor ModpackDebuggerKit found"
+            ls -la
+            exit 1
+          fi
+
+      - name: Zip the build (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cd build/bin
+          if [ -f ModpackDebuggerKit ]; then
+            zip -r ../../ModpackDebuggerKit_${{ env.VERSION }}_Linux.zip ModpackDebuggerKit
+          else
+            echo "ERROR: ModpackDebuggerKit not found"
+            ls -la
+            exit 1
+          fi
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
