@@ -260,7 +260,7 @@ jobs:
           BODY_FILE="/tmp/release_body.md"
           > "$BODY_FILE"
           if [ -f verdesc ] && [ -s verdesc ]; then
-            cat verdesc >> "$BODY_FILE"
+            sed -n p verdesc >> "$BODY_FILE"
             echo "" >> "$BODY_FILE"
             echo "---" >> "$BODY_FILE"
             echo "" >> "$BODY_FILE"
