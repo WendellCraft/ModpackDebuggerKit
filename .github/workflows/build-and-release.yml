@@ -215,20 +215,36 @@ jobs:
           done
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Prepare release body
+        id: body
+        shell: bash
+        run: |
+          BODY_FILE="/tmp/release_body.md"
+          > "$BODY_FILE"
+          if [ -f verdesc ] && [ -s verdesc ]; then
+            cat verdesc >> "$BODY_FILE"
+            echo "" >> "$BODY_FILE"
+            echo "---" >> "$BODY_FILE"
+            echo "" >> "$BODY_FILE"
+          fi
+          {
+            echo "${{ steps.version.outputs.release_banner }}"
+            echo "${{ steps.version.outputs.release_notice }}"
+            echo "### Build Information"
+            echo "- Version: ${{ steps.version.outputs.version }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Branch: ${{ github.ref_name }}"
+            echo "- Built: ${{ github.event.head_commit.timestamp }}"
+            echo "${{ steps.changelog.outputs.changelog }}"
+          } >> "$BODY_FILE"
+          echo "path=$BODY_FILE" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
-          body: |
-            ${{ steps.version.outputs.release_banner }}
-            ${{ steps.version.outputs.release_notice }}
-            ### Build Information
-            - Version: ${{ steps.version.outputs.version }}
-            - Commit: ${{ github.sha }}
-            - Branch: ${{ github.ref_name }}
-            - Built: ${{ github.event.head_commit.timestamp }}
-            ${{ steps.changelog.outputs.changelog }}
+          body_path: ${{ steps.body.outputs.path }}
           files: |
             artifacts/*/*.zip
           draft: false
