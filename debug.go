@@ -184,14 +184,22 @@ func (a *App) restoreAllMods(modsDir string) {
 	group := a.CurrentTestGroup
 	a.mu.Unlock()
 
+	allOk := true
 	for _, mod := range group {
 		src := filepath.Join(a.TempDir, mod)
 		dst := filepath.Join(modsDir, mod)
 		if _, err := os.Stat(src); err == nil {
-			moveFile(src, dst)
+			if err := moveFile(src, dst); err != nil {
+				allOk = false
+				a.emitLog(fmt.Sprintf("Failed to restore %s: %v", mod, err), LogError)
+			}
 		}
 	}
-	os.RemoveAll(a.TempDir)
+	if allOk {
+		os.RemoveAll(a.TempDir)
+	} else {
+		a.emitLog(fmt.Sprintf("Some mods could not be restored. Check %s for remaining files.", a.TempDir), LogWarning)
+	}
 }
 
 func (a *App) getScanCancelled() bool {
