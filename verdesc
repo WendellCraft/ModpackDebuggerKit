@@ -1,1 +1,1 @@
-This update polishes the application a little more after the Go rewrite, firstly it brings multiple bug fixes, it also fixes a minor-medium vulnerability in the application. Lastly, it adds an update checker so the app will notify you if a new version is available.
+This hotfix fixes an issue with the Go + Wails V2 rewrite which borked the functionality of the new mod detection / snapshot system / hanging library management. Anyways it is fixed now, no idea how I didn't catch this during testing, sorry about that.
