@@ -73,6 +73,7 @@ func (a *App) onBeforeClose(ctx context.Context) bool {
 				Title:   "Error",
 				Message: "Failed to save project: " + saveErr.Error(),
 			})
+			return true
 		}
 		return false
 	case "nosave":

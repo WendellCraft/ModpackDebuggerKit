@@ -164,7 +164,7 @@ window.runtime.EventsOn("close-confirm", function() {
         '<p>You have unsaved changes. Do you want to save before closing?</p>',
         '<button class="btn" onclick="closeModal(); window.go.main.App.SubmitCloseAction(\'cancel\')">Cancel</button>' +
         '<button class="btn btn-danger" onclick="closeModal(); window.go.main.App.SubmitCloseAction(\'nosave\')">Don\'t Save</button>' +
-        '<button class="btn btn-primary" onclick="window.go.main.App.SaveProject().then(function() { closeModal(); window.go.main.App.SubmitCloseAction(\'save\'); })">Save</button>'
+        '<button class="btn btn-primary" onclick="closeModal(); window.go.main.App.SubmitCloseAction(\'save\')">Save</button>'
     );
 });
 
