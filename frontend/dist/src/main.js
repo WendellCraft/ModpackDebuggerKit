@@ -378,7 +378,7 @@ function showModSelectionDialog(mods, title) {
     });
     html += '</div>';
 
-    const modsJson = JSON.stringify(mods);
+    const modsJson = JSON.stringify(mods).replace(/"/g, "&quot;");
     showModal(title, html,
         '<button class="btn" onclick="closeModal()">Cancel</button>' +
         '<button class="btn btn-primary" onclick="startDebugWithSelection(' + modsJson + ', \'' + checkId + '\')">Start Debug with Selected Mods</button>'
@@ -426,7 +426,7 @@ function showHangingLibsDialog(libs) {
     });
     html += '</div>';
 
-    const libsJson = JSON.stringify(libs);
+    const libsJson = JSON.stringify(libs).replace(/"/g, "&quot;");
     showModal("Hanging Library Mods", html,
         '<button class="btn" onclick="closeModal()">Cancel</button>' +
         '<button class="btn btn-ghost" onclick="dismissSelectedLibs(' + libsJson + ', \'' + checkId + '\')">Dismiss Selected</button>' +
