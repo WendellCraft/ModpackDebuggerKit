@@ -302,6 +302,13 @@ func (a *App) LoadProject() error {
 // --- Mod Folder ---
 
 func (a *App) SelectModFolder() (string, error) {
+	a.mu.Lock()
+	if a.ActiveScan {
+		a.mu.Unlock()
+		return "", fmt.Errorf("cannot change mod folder while a debug scan is in progress")
+	}
+	a.mu.Unlock()
+
 	dir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
 		Title: "Select Mod Folder",
 	})

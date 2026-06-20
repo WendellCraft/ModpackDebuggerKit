@@ -113,6 +113,7 @@ async function updateUI() {
         const startBtn = document.getElementById("start-debug-btn");
         startBtn.disabled = !hasModsDir || activeScan;
         startBtn.textContent = activeScan ? "Scan in Progress..." : "Start Debug";
+        document.getElementById("select-folder-btn").disabled = activeScan;
     } catch (err) {
         console.error("updateUI error:", err);
     }
