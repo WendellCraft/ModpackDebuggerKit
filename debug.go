@@ -15,7 +15,7 @@ func moveFile(src, dst string) error {
 	if err == nil {
 		return nil
 	}
-	if linkErr, ok := err.(*os.LinkError); ok && linkErr.Err.Error() == "invalid cross-device link" {
+	if _, ok := err.(*os.LinkError); ok {
 		return copyFile(src, dst)
 	}
 	return err
