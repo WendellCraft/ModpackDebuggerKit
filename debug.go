@@ -128,6 +128,13 @@ func (a *App) runDebugScan(modsToTest []string) {
 		if _, err := os.Stat(src); err == nil {
 			if err := moveFile(src, dst); err != nil {
 				a.emitLog("Failed to move "+mod+": "+err.Error(), LogError)
+				a.restoreAllMods(modsDir)
+				a.mu.Lock()
+				a.ActiveScan = false
+				a.CurrentTestGroup = nil
+				a.mu.Unlock()
+				wailsRuntime.EventsEmit(a.ctx, "debug-failed", nil)
+				return
 			}
 		}
 		a.emitLog(fmt.Sprintf("Moving... (%d/%d)", i+1, len(modsToTest)), LogProgress)
@@ -290,7 +297,9 @@ func (a *App) testGroup(mods []string) bool {
 			src := filepath.Join(modsDir, item)
 			dst := filepath.Join(a.TempDir, item)
 			if _, err := os.Stat(src); err == nil {
-				moveFile(src, dst)
+				if err := moveFile(src, dst); err != nil {
+					a.emitLog("Failed to isolate "+item+": "+err.Error(), LogError)
+				}
 			}
 		}
 	}
