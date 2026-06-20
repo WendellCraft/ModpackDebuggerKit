@@ -260,10 +260,8 @@ jobs:
           BODY_FILE="/tmp/release_body.md"
           > "$BODY_FILE"
           if [ -f verdesc ] && [ -s verdesc ]; then
-            sed -n p verdesc >> "$BODY_FILE"
-            echo "" >> "$BODY_FILE"
-            echo "---" >> "$BODY_FILE"
-            echo "" >> "$BODY_FILE"
+            cat verdesc >> "$BODY_FILE"
+            printf "\n\n---\n\n" >> "$BODY_FILE"
           fi
           {
             echo "${{ steps.version.outputs.release_banner }}"
