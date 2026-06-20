@@ -2,6 +2,10 @@
 
 The Modpack Debugger Kit is a Go (Wails v2) application designed to help creators of modpacks easily find mods causing crashes along with various small other helpful features.
 
+[![GitHub Downloads](https://img.shields.io/github/downloads/WendellCraft/ModpackDebuggerKit/total?style=for-the-badge&logo=github&logoColor=white&label=TOTAL+DOWNLOADS&color=333333)](https://github.com/WendellCraft/ModpackDebuggerKit/releases)
+[![GitHub License](https://img.shields.io/github/license/WendellCraft/ModpackDebuggerKit?style=for-the-badge&logo=github&logoColor=white&label=LICENSE&color=333333)](https://github.com/WendellCraft/ModpackDebuggerKit/blob/main/LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/WendellCraft/ModpackDebuggerKit?style=for-the-badge&logo=github&logoColor=white&label=LATEST+RELEASE&color=333333)](https://github.com/WendellCraft/ModpackDebuggerKit/releases/latest)
+
 ## Features
 
 *   **Project Management:** Save and load project configurations, including mod folder path and dependency rules.
