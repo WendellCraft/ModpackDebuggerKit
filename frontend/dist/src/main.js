@@ -43,20 +43,20 @@ document.getElementById("modal-overlay").addEventListener("click", function(e) {
 });
 
 async function showInfo(title, message) {
-    showModal(title, "<p style='white-space: pre-wrap;'>" + message + "</p>",
+    showModal(title, "<p style='white-space: pre-wrap;'>" + escapeHtml(message) + "</p>",
         '<button class="btn" onclick="closeModal()">OK</button>'
     );
 }
 
 async function showError(title, message) {
-    showModal(title, "<p style='white-space: pre-wrap; color: var(--log-error)'>" + message + "</p>",
+    showModal(title, "<p style='white-space: pre-wrap; color: var(--log-error)'>" + escapeHtml(message) + "</p>",
         '<button class="btn" onclick="closeModal()">OK</button>'
     );
 }
 
 async function showConfirm(title, message) {
     return new Promise(function(resolve) {
-        showModal(title, "<p>" + message + "</p>",
+        showModal(title, "<p>" + escapeHtml(message) + "</p>",
             '<button class="btn btn-danger" onclick="closeModal(); resolveConfirm(false)">No</button>' +
             '<button class="btn btn-primary" onclick="closeModal(); resolveConfirm(true)">Yes</button>'
         );
@@ -66,7 +66,7 @@ async function showConfirm(title, message) {
 
 async function showConfirmCancel(title, message) {
     return new Promise(function(resolve) {
-        showModal(title, "<p>" + message + "</p>",
+        showModal(title, "<p>" + escapeHtml(message) + "</p>",
             '<button class="btn" onclick="closeModal(); resolveConfirmCancel(null)">Cancel</button>' +
             '<button class="btn btn-danger" onclick="closeModal(); resolveConfirmCancel(false)">No</button>' +
             '<button class="btn btn-primary" onclick="closeModal(); resolveConfirmCancel(true)">Yes</button>'
