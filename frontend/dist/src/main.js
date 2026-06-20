@@ -327,10 +327,11 @@ function showNewModsDialog(newMods, deletedMods) {
     }
     html += '<p style="margin-top: 12px; font-weight: 600;">What would you like to do?</p>';
 
+    var json = JSON.stringify(newMods).replace(/"/g, "&quot;");
     showModal("New Mods Detected", html,
         '<button class="btn" onclick="closeModal()">Cancel</button>' +
-        '<button class="btn btn-primary" onclick="saveNewModsForLater(' + JSON.stringify(newMods) + ')">Save for Later & Snapshot</button>' +
-        '<button class="btn" style="background: var(--success); border-color: var(--success);" onclick="startDebugWithNewMods(' + JSON.stringify(newMods) + ')">Start Debug & Snapshot</button>'
+        '<button class="btn btn-primary" onclick="saveNewModsForLater(' + json + ')">Save for Later & Snapshot</button>' +
+        '<button class="btn" style="background: var(--success); border-color: var(--success);" onclick="startDebugWithNewMods(' + json + ')">Start Debug & Snapshot</button>'
     );
 }
 
