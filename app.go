@@ -914,6 +914,7 @@ func (a *App) SubmitTestResult(success bool) {
 func (a *App) CancelScan() {
 	a.mu.Lock()
 	a.ScanCancelled = true
+	a.ActiveScan = false
 	a.mu.Unlock()
 
 	select {

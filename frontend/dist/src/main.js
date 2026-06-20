@@ -2,6 +2,7 @@ let projectModified = false;
 let projectFilePath = "";
 let currentTheme = "dark";
 let syncActive = false;
+let testDialogActive = false;
 
 function log(message, level) {
     const area = document.getElementById("log-area");
@@ -33,9 +34,12 @@ function closeModal() {
     document.getElementById("modal-overlay").classList.add("hidden");
 }
 
-document.getElementById("modal-close-btn").addEventListener("click", closeModal);
+document.getElementById("modal-close-btn").addEventListener("click", function() {
+    if (testDialogActive) return;
+    closeModal();
+});
 document.getElementById("modal-overlay").addEventListener("click", function(e) {
-    if (e.target === this) closeModal();
+    if (e.target === this && !testDialogActive) closeModal();
 });
 
 async function showInfo(title, message) {
@@ -164,6 +168,7 @@ window.runtime.EventsOn("close-confirm", function() {
 });
 
 function showTestDialog(count) {
+    testDialogActive = true;
     showModal("Test Launch",
         '<div class="test-dialog-main">' +
         '<h2>Testing ' + count + ' mods</h2>' +
@@ -177,13 +182,16 @@ function showTestDialog(count) {
 }
 
 function submitTestResult(success) {
+    testDialogActive = false;
     closeModal();
     window.go.main.App.SubmitTestResult(success);
 }
 
 async function cancelDebug() {
     await window.go.main.App.CancelScan();
+    testDialogActive = false;
     closeModal();
+    await updateUI();
 }
 
 // Theme
