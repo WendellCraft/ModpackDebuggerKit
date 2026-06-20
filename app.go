@@ -2,16 +2,34 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+//go:embed version
+var versionFile embed.FS
+
+var AppVersion string
+
+func init() {
+	data, err := versionFile.ReadFile("version")
+	if err != nil {
+		AppVersion = "0.0.0"
+	} else {
+		AppVersion = strings.TrimSpace(string(data))
+	}
+}
 
 type App struct {
 	ctx                context.Context
@@ -47,6 +65,62 @@ func (a *App) startup(ctx context.Context) {
 	a.TempDir = filepath.Join(os.TempDir(), "modpack-debugger-temp-mods")
 	os.RemoveAll(a.TempDir)
 	os.MkdirAll(a.TempDir, 0755)
+
+	go a.checkForUpdate()
+}
+
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+}
+
+func (a *App) checkForUpdate() {
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get("https://api.github.com/repos/WendellCraft/ModpackDebuggerKit/releases/latest")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var release githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return
+	}
+	if release.TagName == "" {
+		return
+	}
+
+	latest := strings.TrimPrefix(release.TagName, "v")
+	if isNewerVersion(latest, AppVersion) {
+		wailsRuntime.EventsEmit(a.ctx, "update-available", latest)
+	}
+}
+
+func isNewerVersion(latest, current string) bool {
+	ls := strings.Split(latest, ".")
+	cs := strings.Split(current, ".")
+	max := len(ls)
+	if len(cs) > max {
+		max = len(cs)
+	}
+	for i := 0; i < max; i++ {
+		var l, c int
+		if i < len(ls) {
+			l, _ = strconv.Atoi(ls[i])
+		}
+		if i < len(cs) {
+			c, _ = strconv.Atoi(cs[i])
+		}
+		if l > c {
+			return true
+		} else if l < c {
+			return false
+		}
+	}
+	return false
+}
+
+func (a *App) OpenUpdateURL() {
+	wailsRuntime.BrowserOpenURL(a.ctx, "https://github.com/WendellCraft/ModpackDebuggerKit/releases/latest")
 }
 
 func (a *App) shutdown(ctx context.Context) {

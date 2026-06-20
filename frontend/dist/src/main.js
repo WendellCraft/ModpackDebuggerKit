@@ -161,6 +161,14 @@ window.runtime.EventsOn("hanging-libs-alert", function(count) {
     btn.textContent = "Hanging Libraries (" + count + ")";
 });
 
+window.runtime.EventsOn("update-available", function(version) {
+    showModal("Update Available",
+        "<p>A new update (" + escapeHtml(version) + ") is available.</p>",
+        '<button class="btn btn-danger" onclick="closeModal()">Ignore</button>' +
+        '<button class="btn btn-primary" onclick="window.go.main.App.OpenUpdateURL(); closeModal()">Download</button>'
+    );
+});
+
 window.runtime.EventsOn("close-confirm", function() {
     showModal("Unsaved Changes",
         '<p>You have unsaved changes. Do you want to save before closing?</p>',
