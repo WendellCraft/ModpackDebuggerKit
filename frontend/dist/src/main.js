@@ -303,10 +303,10 @@ document.getElementById("detect-new-mods-btn").addEventListener("click", async f
             await showInfo("Detection Result", "No new mods detected since last snapshot");
             return;
         }
-        if (result.NewMods && result.NewMods.length > 0) {
-            showNewModsDialog(result.NewMods, result.DeletedMods);
-        } else if (result.DeletedMods && result.DeletedMods.length > 0) {
-            await showInfo("Detection Result", result.DeletedMods.length + " mod(s) were removed from the snapshot. No new mods were detected.");
+        if (result.new_mods && result.new_mods.length > 0) {
+            showNewModsDialog(result.new_mods, result.deleted_mods);
+        } else if (result.deleted_mods && result.deleted_mods.length > 0) {
+            await showInfo("Detection Result", result.deleted_mods.length + " mod(s) were removed from the snapshot. No new mods were detected.");
         } else {
             await showInfo("Detection Result", "No new mods detected since last snapshot");
         }
