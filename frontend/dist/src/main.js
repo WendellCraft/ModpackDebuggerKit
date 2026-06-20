@@ -149,8 +149,10 @@ window.runtime.EventsOn("sync-progress", function(data) {
 
 window.runtime.EventsOn("sync-complete", function() {
     syncActive = false;
-    closeModal();
-    refreshDependencyList();
+    if (document.getElementById("dep-list")) {
+        closeModal();
+        refreshDependencyList();
+    }
     updateUI();
 });
 
