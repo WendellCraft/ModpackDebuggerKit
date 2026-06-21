@@ -106,8 +106,8 @@ async function updateUI() {
         const savedBtn = document.getElementById("access-saved-btn");
         savedBtn.disabled = !hasModsDir || savedMods.length === 0;
 
-        document.getElementById("save-project-btn").disabled = !hasModsDir;
-        document.getElementById("save-as-btn").disabled = !projectFilePath;
+        document.getElementById("save-project-btn").disabled = !hasModsDir || !projectFilePath;
+        document.getElementById("save-as-btn").disabled = !hasModsDir;
 
         const activeScan = await window.go.main.App.IsActiveScan();
         const startBtn = document.getElementById("start-debug-btn");
