@@ -44,6 +44,7 @@ type App struct {
 	ProjectModified    bool
 	SyncCancelled      bool
 	AutoLaunchGame     bool
+	prevHangingCount   int
 	testResultChan     chan bool
 	closeConfirmChan   chan string
 	mu                 sync.Mutex
@@ -893,11 +894,15 @@ func (a *App) updateHangingLibraries() {
 
 	a.mu.Lock()
 	a.HangingLibraries = hangingList
+	count := len(hangingList)
 	a.mu.Unlock()
 
-	wailsRuntime.EventsEmit(a.ctx, "hanging-libs-alert", len(hangingList))
-	if len(hangingList) > 0 {
-		a.emitLog(fmt.Sprintf("Found %d hanging library mod(s).", len(hangingList)), LogWarning)
+	if count != a.prevHangingCount {
+		a.prevHangingCount = count
+		wailsRuntime.EventsEmit(a.ctx, "hanging-libs-alert", count)
+	}
+	if count > 0 {
+		a.emitLog(fmt.Sprintf("Found %d hanging library mod(s).", count), LogWarning)
 	}
 }
 
