@@ -617,7 +617,8 @@ func (a *App) GetDependencies() map[string][]string {
 
 func (a *App) AddDependency(mainMod string, deps []string) {
 	a.mu.Lock()
-	a.ProjectData.Dependencies[mainMod] = deps
+	depsCopy := append([]string{}, deps...)
+	a.ProjectData.Dependencies[mainMod] = depsCopy
 	a.ProjectModified = true
 	a.mu.Unlock()
 	a.emitLog(fmt.Sprintf("Dependency added: %s -> %s", mainMod, joinStrings(deps, ", ")), LogSuccess)
@@ -627,7 +628,8 @@ func (a *App) AddDependency(mainMod string, deps []string) {
 func (a *App) AddDependencyMulti(mainMods []string, deps []string) {
 	a.mu.Lock()
 	for _, main := range mainMods {
-		a.ProjectData.Dependencies[main] = deps
+		depsCopy := append([]string{}, deps...)
+		a.ProjectData.Dependencies[main] = depsCopy
 	}
 	a.ProjectModified = true
 	a.mu.Unlock()
