@@ -544,7 +544,7 @@ function showDependencyManager(deps) {
                 '<div class="dep-item-name">' + escapeHtml(mod) + '</div>' +
                 '<div class="dep-item-deps">' + escapeHtml(depList.join(", ")) + '</div>' +
                 '</div>' +
-                '<button class="btn btn-danger btn-sm btn-icon" onclick="removeDep(\'' + escapeJs(mod) + '\')">&times;</button>' +
+                '<button class="btn btn-danger btn-sm btn-icon" onclick="removeDep(' + JSON.stringify(mod).replace(/"/g, "&quot;") + ')">&times;</button>' +
                 '</div>';
         });
     }
@@ -570,7 +570,7 @@ async function refreshDependencyList() {
                     '<div class="dep-item-name">' + escapeHtml(mod) + '</div>' +
                     '<div class="dep-item-deps">' + escapeHtml(depList.join(", ")) + '</div>' +
                     '</div>' +
-                    '<button class="btn btn-danger btn-sm btn-icon" onclick="removeDep(\'' + escapeJs(mod) + '\')">&times;</button>' +
+                    '<button class="btn btn-danger btn-sm btn-icon" onclick="removeDep(' + JSON.stringify(mod).replace(/"/g, "&quot;") + ')">&times;</button>' +
                     '</div>';
             });
             listEl.innerHTML = html;
