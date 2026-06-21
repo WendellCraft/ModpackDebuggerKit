@@ -1,1 +1,1 @@
-This hotfix fixes an issue with the Go + Wails V2 rewrite which borked the functionality of the new mod detection / snapshot system / hanging library management. Anyways it is fixed now, no idea how I didn't catch this during testing, sorry about that.
+This update brings one of the most anticipated features that has been asked for since day 1, automatic game launching! (For now this only works for people using Prism Launcher). Anyways the app now has an option to automatically launch your game during debug testing so you don't have to do it manually. Enjoy! :D
