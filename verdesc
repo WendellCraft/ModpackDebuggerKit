@@ -1,1 +1,1 @@
-This update brings one of the most anticipated features that has been asked for since day 1, automatic game launching! (For now this only works for people using Prism Launcher). Anyways the app now has an option to automatically launch your game during debug testing so you don't have to do it manually. Enjoy! :D
+This update polishes the app a little more and fixes a couple of annoying bugs, it also adds an option to add "required mods" which are mods that will basically be ignored during debugging, so they will always be there.
