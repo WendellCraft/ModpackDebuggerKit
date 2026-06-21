@@ -278,6 +278,13 @@ document.getElementById("save-as-btn").addEventListener("click", async function(
 
 // Mod Folder
 document.getElementById("select-folder-btn").addEventListener("click", async function() {
+    const data = await window.go.main.App.GetProjectData();
+    const deps = data.dependencies || {};
+    if (Object.keys(deps).length > 0) {
+        const confirmed = await showConfirm("Change Mod Folder", "Changing the mod folder will delete all saved dependencies. Continue?");
+        if (!confirmed) return;
+    }
+
     const currentPath = document.getElementById("folder-label").textContent;
     const pathInputId = "folder-path-input";
 
