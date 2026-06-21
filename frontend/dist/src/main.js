@@ -158,7 +158,7 @@ window.runtime.EventsOn("sync-complete", function() {
 
 window.runtime.EventsOn("hanging-libs-alert", function(count) {
     var btn = document.getElementById("hanging-libs-btn");
-    btn.textContent = "Hanging Libraries (" + count + ")";
+    btn.textContent = count > 0 ? "Hanging Libraries (" + count + ")" : "Hanging Libraries";
 });
 
 window.runtime.EventsOn("update-available", function(version) {

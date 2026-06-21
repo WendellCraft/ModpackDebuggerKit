@@ -881,13 +881,10 @@ func (a *App) updateHangingLibraries() {
 
 	a.mu.Lock()
 	a.HangingLibraries = hangingList
-	prevCount := len(hangingList)
 	a.mu.Unlock()
 
+	wailsRuntime.EventsEmit(a.ctx, "hanging-libs-alert", len(hangingList))
 	if len(hangingList) > 0 {
-		if prevCount > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "hanging-libs-alert", len(hangingList))
-		}
 		a.emitLog(fmt.Sprintf("Found %d hanging library mod(s).", len(hangingList)), LogWarning)
 	}
 }
