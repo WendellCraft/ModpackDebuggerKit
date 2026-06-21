@@ -98,6 +98,12 @@ func (a *App) checkForUpdate() {
 }
 
 func isNewerVersion(latest, current string) bool {
+	if idx := strings.Index(latest, "-"); idx >= 0 {
+		latest = latest[:idx]
+	}
+	if idx := strings.Index(current, "-"); idx >= 0 {
+		current = current[:idx]
+	}
 	ls := strings.Split(latest, ".")
 	cs := strings.Split(current, ".")
 	max := len(ls)
