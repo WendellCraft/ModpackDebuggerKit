@@ -278,15 +278,39 @@ document.getElementById("save-as-btn").addEventListener("click", async function(
 
 // Mod Folder
 document.getElementById("select-folder-btn").addEventListener("click", async function() {
-    try {
+    const currentPath = document.getElementById("folder-label").textContent;
+    const pathInputId = "folder-path-input";
+
+    showModal("Select Mod Folder",
+        '<div style="display: flex; flex-direction: column; gap: 8px;">' +
+        '<label for="' + pathInputId + '" style="font-size: 13px; color: var(--text-secondary);">Mod Folder Path</label>' +
+        '<div style="display: flex; gap: 6px;">' +
+        '<input type="text" id="' + pathInputId + '" value="' + escapeHtml(currentPath) + '" placeholder="/path/to/mods" style="flex: 1; padding: 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); font-size: 13px;"/>' +
+        '<button class="btn" id="browse-folder-btn">Browse</button>' +
+        '</div>' +
+        '</div>',
+        '<button class="btn" onclick="closeModal()">Cancel</button>' +
+        '<button class="btn btn-primary" id="confirm-folder-btn">OK</button>'
+    );
+
+    document.getElementById("browse-folder-btn").addEventListener("click", async function() {
         const dir = await window.go.main.App.SelectModFolder();
         if (dir) {
-            document.getElementById("folder-label").textContent = dir;
-            await updateUI();
+            document.getElementById(pathInputId).value = dir;
         }
-    } catch (err) {
-        await showError("Error", err);
-    }
+    });
+
+    document.getElementById("confirm-folder-btn").addEventListener("click", async function() {
+        const path = document.getElementById(pathInputId).value.trim();
+        try {
+            await window.go.main.App.SetModFolderPath(path);
+            document.getElementById("folder-label").textContent = path;
+            closeModal();
+            await updateUI();
+        } catch (err) {
+            await showError("Error", err);
+        }
+    });
 });
 
 // Snapshot

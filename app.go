@@ -379,30 +379,45 @@ func (a *App) LoadProject() error {
 // --- Mod Folder ---
 
 func (a *App) SelectModFolder() (string, error) {
-	a.mu.Lock()
-	if a.ActiveScan {
-		a.mu.Unlock()
-		return "", fmt.Errorf("cannot change mod folder while a debug scan is in progress")
-	}
-	a.mu.Unlock()
-
 	dir, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
 		Title: "Select Mod Folder",
 	})
 	if err != nil {
 		return "", err
 	}
-	if dir == "" {
-		return "", nil
+	return dir, nil
+}
+
+func (a *App) SetModFolderPath(path string) error {
+	a.mu.Lock()
+	if a.ActiveScan {
+		a.mu.Unlock()
+		return fmt.Errorf("cannot change mod folder while a debug scan is in progress")
+	}
+	a.mu.Unlock()
+
+	if path == "" {
+		return fmt.Errorf("path cannot be empty")
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("path does not exist: %s", path)
+		}
+		return fmt.Errorf("cannot access path: %v", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory: %s", path)
 	}
 
 	a.mu.Lock()
-	a.ProjectData.ModsDir = dir
+	a.ProjectData.ModsDir = path
 	a.ProjectModified = true
 	a.mu.Unlock()
 
-	a.emitLog(fmt.Sprintf("Mod folder set: %s", dir), LogSuccess)
-	return dir, nil
+	a.emitLog(fmt.Sprintf("Mod folder set: %s", path), LogSuccess)
+	return nil
 }
 
 func (a *App) GetAvailableMods() []string {
