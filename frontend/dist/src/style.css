@@ -561,6 +561,13 @@ html, body {
     font-size: 13px;
 }
 
+#auto-launch-checkbox {
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
 .checkbox-item input[type="checkbox"],
 .checkbox-item input[type="radio"] {
     accent-color: var(--accent);

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -318,9 +320,44 @@ func (a *App) testGroup(mods []string) bool {
 }
 
 func (a *App) waitForTestResult(modCount int) bool {
-	wailsRuntime.EventsEmit(a.ctx, "test-group-prompt", map[string]int{"count": modCount})
+	if a.AutoLaunchGame {
+		prismPath, err := findPrismLauncher()
+		if err != nil {
+			a.emitLog(fmt.Sprintf("Failed to launch Prism Launcher: %v", err), LogError)
+			wailsRuntime.EventsEmit(a.ctx, "test-group-prompt", map[string]interface{}{
+				"count":       modCount,
+				"auto_launch": false,
+			})
+			result := <-a.testResultChan
+			return result
+		}
+		instanceName := a.getInstanceName()
+		cmd := exec.Command(prismPath, "-l", instanceName)
+		if err := cmd.Start(); err != nil {
+			a.emitLog(fmt.Sprintf("Failed to launch Prism Launcher: %v", err), LogError)
+			wailsRuntime.EventsEmit(a.ctx, "test-group-prompt", map[string]interface{}{
+				"count":       modCount,
+				"auto_launch": false,
+			})
+			result := <-a.testResultChan
+			return result
+		}
+		defer func() {
+			cmd.Process.Kill()
+			time.Sleep(500 * time.Millisecond)
+		}()
+	}
+
+	wailsRuntime.EventsEmit(a.ctx, "test-group-prompt", map[string]interface{}{
+		"count":       modCount,
+		"auto_launch": a.AutoLaunchGame,
+	})
 	result := <-a.testResultChan
 	return result
+}
+
+func (a *App) getInstanceName() string {
+	return filepath.Base(filepath.Dir(filepath.Dir(a.ProjectData.ModsDir)))
 }
 
 func readDirNames(dir string) []string {

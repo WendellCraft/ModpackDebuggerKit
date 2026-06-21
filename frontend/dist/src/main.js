@@ -125,7 +125,7 @@ window.runtime.EventsOn("log", function(data) {
 });
 
 window.runtime.EventsOn("test-group-prompt", function(data) {
-    showTestDialog(data.count);
+    showTestDialog(data.count, data.auto_launch);
 });
 
 window.runtime.EventsOn("debug-complete", function(culprit) {
@@ -178,12 +178,16 @@ window.runtime.EventsOn("close-confirm", function() {
     );
 });
 
-function showTestDialog(count) {
+function showTestDialog(count, autoLaunch) {
     testDialogActive = true;
+    var launchText = autoLaunch
+        ? "The game has been launched, please wait and see if Minecraft loads properly"
+        : "Launch Minecraft now and test if it loads properly";
     showModal("Test Launch",
         '<div class="test-dialog-main">' +
         '<h2>Testing ' + count + ' mods</h2>' +
-        '<p>Launch Minecraft now and test if it loads properly.</p>' +
+        '<p>' + launchText + '</p>' +
+        '<p style="font-weight: bold; color: var(--log-error);">MAKE SURE TO CLOSE THE GAME BEFORE SELECTING AN OPTION.</p>' +
         '<p style="color: var(--text-secondary); font-size: 12px;">Only the selected mods are in your mods folder.</p>' +
         '</div>',
         '<button class="btn btn-danger" onclick="cancelDebug()">Cancel Debug</button>' +
@@ -397,7 +401,8 @@ async function startDebugWithSelection(mods, checkId) {
     }
     closeModal();
     try {
-        await window.go.main.App.StartDebug("specific", selected);
+        const autoLaunch = document.getElementById("auto-launch-checkbox").checked;
+        await window.go.main.App.StartDebug("specific", selected, autoLaunch);
         await updateUI();
     } catch (err) {
         await showError("Error", err);
@@ -715,9 +720,11 @@ document.getElementById("start-debug-btn").addEventListener("click", async funct
     const mode = document.querySelector('input[name="mode"]:checked');
     if (!mode) return;
 
+    const autoLaunch = document.getElementById("auto-launch-checkbox").checked;
+
     try {
         if (mode.value === "all") {
-            await window.go.main.App.StartDebug("all", null);
+            await window.go.main.App.StartDebug("all", null, autoLaunch);
         } else {
             const savedMods = await window.go.main.App.GetSavedNewMods();
             if (!savedMods || savedMods.length === 0) {

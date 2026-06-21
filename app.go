@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -42,6 +43,7 @@ type App struct {
 	ProjectFilePath    string
 	ProjectModified    bool
 	SyncCancelled      bool
+	AutoLaunchGame     bool
 	testResultChan     chan bool
 	closeConfirmChan   chan string
 	mu                 sync.Mutex
@@ -938,17 +940,31 @@ func (a *App) GetTheme() string {
 
 // --- Debug Control ---
 
-func (a *App) StartDebug(mode string, selectedMods []string) error {
+func findPrismLauncher() (string, error) {
+	if path, err := exec.LookPath("prismlauncher"); err == nil {
+		return path, nil
+	}
+	return "", fmt.Errorf("Prism Launcher not found. Install it or turn off Auto Launch Game.")
+}
+
+func (a *App) StartDebug(mode string, selectedMods []string, autoLaunch bool) error {
 	a.mu.Lock()
 	if a.ActiveScan {
 		a.mu.Unlock()
 		return fmt.Errorf("a debug session is already in progress")
 	}
+	a.AutoLaunchGame = autoLaunch
 	modsDir := a.ProjectData.ModsDir
 	a.mu.Unlock()
 
 	if modsDir == "" {
 		return fmt.Errorf("please select a mod folder first")
+	}
+
+	if autoLaunch {
+		if _, err := findPrismLauncher(); err != nil {
+			return fmt.Errorf("Failed to start debug session, Prism Launcher is not installed. Please install Prism Launcher or turn off Auto Launch Game.")
+		}
 	}
 
 	entries, err := os.ReadDir(modsDir)
