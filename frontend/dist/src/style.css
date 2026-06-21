@@ -284,6 +284,8 @@ html, body {
 
 .btn-grid .btn {
     width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Folder label */
