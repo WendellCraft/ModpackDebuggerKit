@@ -97,6 +97,7 @@ async function updateUI() {
             "detect-new-mods-btn",
             "hanging-libs-btn",
             "manage-deps-btn",
+            "required-mods-btn",
         ];
         folderBtns.forEach(function(id) {
             document.getElementById(id).disabled = !hasModsDir;
@@ -517,6 +518,48 @@ document.getElementById("manage-deps-btn").addEventListener("click", async funct
     try {
         const deps = await window.go.main.App.GetDependencies();
         showDependencyManager(deps);
+    } catch (err) {
+        await showError("Error", err);
+    }
+});
+
+document.getElementById("required-mods-btn").addEventListener("click", async function() {
+    try {
+        const mods = await window.go.main.App.GetAvailableMods();
+        const current = await window.go.main.App.GetRequiredMods();
+        const requiredSet = {};
+        current.forEach(function(m) { requiredSet[m] = true; });
+
+        if (mods.length === 0) {
+            await showInfo("Required Mods", "No mods found in the current folder.");
+            return;
+        }
+
+        var html = '<p style="margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">Required mods will never be moved out during debug scans.</p>';
+        const checkId = "req-mod-";
+        mods.forEach(function(mod, i) {
+            var checked = requiredSet[mod] ? "checked" : "";
+            html += '<label class="checkbox-item"><input type="checkbox" id="' + checkId + i + '" ' + checked + '/> ' + escapeHtml(mod) + '</label>';
+        });
+
+        showModal("Required Mods", html,
+            '<button class="btn" onclick="closeModal()">Cancel</button>' +
+            '<button class="btn btn-primary" id="save-required-mods-btn">Save</button>'
+        );
+
+        document.getElementById("save-required-mods-btn").addEventListener("click", async function() {
+            var selected = [];
+            mods.forEach(function(mod, i) {
+                var cb = document.getElementById(checkId + i);
+                if (cb && cb.checked) selected.push(mod);
+            });
+            closeModal();
+            try {
+                await window.go.main.App.SetRequiredMods(selected);
+            } catch (err) {
+                await showError("Error", err);
+            }
+        });
     } catch (err) {
         await showError("Error", err);
     }

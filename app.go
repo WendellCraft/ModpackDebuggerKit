@@ -424,6 +424,7 @@ func (a *App) SetModFolderPath(path string) error {
 	a.ProjectData.LatestSnapshot = nil
 	a.ProjectData.SavedNewMods = nil
 	a.ProjectData.DismissedHangingLibs = nil
+	a.ProjectData.RequiredMods = nil
 	a.HangingLibraries = nil
 	a.ProjectModified = true
 	a.mu.Unlock()
@@ -914,6 +915,48 @@ func (a *App) GetHangingLibraries() []string {
 	return a.HangingLibraries
 }
 
+func (a *App) GetRequiredMods() []string {
+	a.mu.Lock()
+	modsDir := a.ProjectData.ModsDir
+	required := a.ProjectData.RequiredMods
+	a.mu.Unlock()
+
+	if modsDir == "" || len(required) == 0 {
+		return []string{}
+	}
+
+	modsOnDisk := make(map[string]bool)
+	entries, err := os.ReadDir(modsDir)
+	if err == nil {
+		for _, e := range entries {
+			if !e.IsDir() && filepath.Ext(e.Name()) == ".jar" {
+				modsOnDisk[e.Name()] = true
+			}
+		}
+	}
+
+	var valid []string
+	for _, m := range required {
+		if modsOnDisk[m] {
+			valid = append(valid, m)
+		}
+	}
+
+	a.mu.Lock()
+	a.ProjectData.RequiredMods = valid
+	a.mu.Unlock()
+	return valid
+}
+
+func (a *App) SetRequiredMods(mods []string) error {
+	a.mu.Lock()
+	a.ProjectData.RequiredMods = mods
+	a.ProjectModified = true
+	a.mu.Unlock()
+	a.emitLog(fmt.Sprintf("Required mods set (%d mod(s))", len(mods)), LogSuccess)
+	return nil
+}
+
 func (a *App) DeleteSelectedHangingLibs(libs []string) error {
 	a.mu.Lock()
 	modsDir := a.ProjectData.ModsDir
@@ -1025,6 +1068,21 @@ func (a *App) StartDebug(mode string, selectedMods []string, autoLaunch bool) er
 		}
 		mods = selectedMods
 	}
+
+	a.mu.Lock()
+	required := a.ProjectData.RequiredMods
+	a.mu.Unlock()
+	requiredSet := make(map[string]bool)
+	for _, r := range required {
+		requiredSet[r] = true
+	}
+	var filtered []string
+	for _, m := range mods {
+		if !requiredSet[m] {
+			filtered = append(filtered, m)
+		}
+	}
+	mods = filtered
 
 	os.RemoveAll(a.TempDir)
 	os.MkdirAll(a.TempDir, 0755)

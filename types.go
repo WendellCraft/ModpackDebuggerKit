@@ -6,6 +6,7 @@ type ProjectData struct {
 	Dependencies       map[string][]string `json:"dependencies"`
 	SavedNewMods       []string            `json:"saved_new_mods"`
 	DismissedHangingLibs []string          `json:"dismissed_hanging_libs"`
+	RequiredMods       []string            `json:"required_mods"`
 	Theme              string              `json:"theme"`
 }
 
