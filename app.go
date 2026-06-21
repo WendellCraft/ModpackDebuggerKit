@@ -413,9 +413,15 @@ func (a *App) SetModFolderPath(path string) error {
 
 	a.mu.Lock()
 	a.ProjectData.ModsDir = path
+	a.ProjectData.Dependencies = make(map[string][]string)
+	a.ProjectData.LatestSnapshot = nil
+	a.ProjectData.SavedNewMods = nil
+	a.ProjectData.DismissedHangingLibs = nil
+	a.HangingLibraries = nil
 	a.ProjectModified = true
 	a.mu.Unlock()
 
+	wailsRuntime.EventsEmit(a.ctx, "hanging-libs-alert", 0)
 	a.emitLog(fmt.Sprintf("Mod folder set: %s", path), LogSuccess)
 	return nil
 }
