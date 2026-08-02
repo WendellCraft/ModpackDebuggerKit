@@ -1084,6 +1084,7 @@ func (a *App) StartDebug(mode string, selectedMods []string, autoLaunch bool) er
 	}
 	mods = filtered
 
+	a.TempDir = filepath.Join(filepath.Dir(modsDir), ".modpack-debugger-temp-mods")
 	os.RemoveAll(a.TempDir)
 	os.MkdirAll(a.TempDir, 0755)
 

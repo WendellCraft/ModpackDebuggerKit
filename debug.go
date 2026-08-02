@@ -28,20 +28,28 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
 
 	out, err := os.Create(dst)
 	if err != nil {
+		in.Close()
 		return err
 	}
-	defer out.Close()
 
-	if _, err := io.Copy(out, in); err != nil {
-		return err
+	_, copyErr := io.Copy(out, in)
+
+	inCloseErr := in.Close()
+	outCloseErr := out.Close()
+
+	if copyErr != nil {
+		return copyErr
 	}
-	if err := out.Close(); err != nil {
-		return err
+	if inCloseErr != nil {
+		return inCloseErr
 	}
+	if outCloseErr != nil {
+		return outCloseErr
+	}
+
 	return os.Remove(src)
 }
 
