@@ -1,1 +1,1 @@
-This update polishes the app a little more and fixes a couple of annoying bugs, it also adds an option to add "required mods" which are mods that will basically be ignored during debugging, so they will always be there.
+This update fixes a bug on Windows where debug scans could fail and leave behind duplicate mods when the temp directory was on a different drive than your mods folder. The temp directory is now created next to your mods folder to solve this issue.
