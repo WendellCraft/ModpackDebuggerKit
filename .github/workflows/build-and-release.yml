@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Read version from file
         id: get_version
@@ -37,7 +37,7 @@ jobs:
           echo "VERSION=$V" >> $GITHUB_ENV
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.27.2'
 
@@ -103,7 +103,7 @@ jobs:
           fi
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}
           path: ModpackDebuggerKit_${{ env.VERSION }}_${{ matrix.asset_os_name }}.zip
@@ -117,7 +117,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -153,7 +153,7 @@ jobs:
           fi
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts/
 
@@ -252,6 +252,14 @@ jobs:
       - name: Prepare release body
         id: body
         shell: bash
+        env:
+          RELEASE_BANNER: ${{ steps.version.outputs.release_banner }}
+          RELEASE_NOTICE: ${{ steps.version.outputs.release_notice }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
         run: |
           BODY_FILE="/tmp/release_body.md"
           > "$BODY_FILE"
@@ -260,19 +268,19 @@ jobs:
             printf "\n\n---\n\n" >> "$BODY_FILE"
           fi
           {
-            echo "${{ steps.version.outputs.release_banner }}"
-            echo "${{ steps.version.outputs.release_notice }}"
+            echo "$RELEASE_BANNER"
+            echo "$RELEASE_NOTICE"
             echo "### Build Information"
-            echo "- Version: ${{ steps.version.outputs.version }}"
-            echo "- Commit: ${{ github.sha }}"
-            echo "- Branch: ${{ github.ref_name }}"
-            echo "- Built: ${{ github.event.head_commit.timestamp }}"
-            echo "${{ steps.changelog.outputs.changelog }}"
+            echo "- Version: $RELEASE_VERSION"
+            echo "- Commit: $COMMIT_SHA"
+            echo "- Branch: $REF_NAME"
+            echo "- Built: $HEAD_TIMESTAMP"
+            echo "$CHANGELOG"
           } >> "$BODY_FILE"
           echo "path=$BODY_FILE" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
