@@ -263,9 +263,15 @@ jobs:
         run: |
           BODY_FILE="/tmp/release_body.md"
           > "$BODY_FILE"
-          if [ -f verdesc ] && [ -s verdesc ]; then
-            cat verdesc >> "$BODY_FILE"
-            printf "\n\n---\n\n" >> "$BODY_FILE"
+          if [ -f verdesc ]; then
+            # Trim leading/trailing blank lines only; keep blank lines inside the text.
+            TRIMMED=$(awk '
+              /^[[:space:]]*$/ { if (started) blank++; next }
+              { while (blank > 0) { print ""; blank-- } started=1; print }
+            ' verdesc)
+            if [ -n "$TRIMMED" ]; then
+              printf '%s\n\n---\n\n' "$TRIMMED" >> "$BODY_FILE"
+            fi
           fi
           {
             echo "$RELEASE_BANNER"
