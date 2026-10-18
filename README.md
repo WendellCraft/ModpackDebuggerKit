@@ -63,7 +63,14 @@ Run it!
 3.  **Run in dev mode (with hot-reload):**
 
     ```bash
-    wails dev
+    make dev
+    ```
+
+    The Makefile target passes `-tags webkit2_41`, needed on systems that only
+    ship the WebKitGTK 4.1 libraries. Run it directly with:
+
+    ```bash
+    wails dev -tags webkit2_41
     ```
 
 ## Usage Guide
