@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -329,19 +330,8 @@ func (a *App) testGroup(mods []string) bool {
 
 func (a *App) waitForTestResult(modCount int) bool {
 	if a.AutoLaunchGame {
-		prismPath, err := findPrismLauncher()
+		cmd, err := a.startPrismInstance()
 		if err != nil {
-			a.emitLog(fmt.Sprintf("Failed to launch Prism Launcher: %v", err), LogError)
-			wailsRuntime.EventsEmit(a.ctx, "test-group-prompt", map[string]interface{}{
-				"count":       modCount,
-				"auto_launch": false,
-			})
-			result := <-a.testResultChan
-			return result
-		}
-		instanceName := a.getInstanceName()
-		cmd := exec.Command(prismPath, "-l", instanceName)
-		if err := cmd.Start(); err != nil {
 			a.emitLog(fmt.Sprintf("Failed to launch Prism Launcher: %v", err), LogError)
 			wailsRuntime.EventsEmit(a.ctx, "test-group-prompt", map[string]interface{}{
 				"count":       modCount,
@@ -366,6 +356,31 @@ func (a *App) waitForTestResult(modCount int) bool {
 
 func (a *App) getInstanceName() string {
 	return filepath.Base(filepath.Dir(filepath.Dir(a.ProjectData.ModsDir)))
+}
+
+// startPrismInstance launches the Prism Launcher instance that matches the
+// project's mod folder. The name is derived from the user's own directory layout,
+// so it is validated before being passed to exec.Command to keep it from being
+// taken for another command line flag.
+func (a *App) startPrismInstance() (*exec.Cmd, error) {
+	prismPath, err := findPrismLauncher()
+	if err != nil {
+		return nil, err
+	}
+
+	instanceName := a.getInstanceName()
+	if instanceName == "" || instanceName == "." || strings.HasPrefix(instanceName, "-") {
+		return nil, fmt.Errorf("could not determine a valid Prism Launcher instance name from mod folder %q", a.ProjectData.ModsDir)
+	}
+
+	// prismPath comes from exec.LookPath and instanceName is validated above, so
+	// neither is shell-interpreted and neither is attacker-controlled.
+	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
+	cmd := exec.Command(prismPath, "-l", instanceName)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return cmd, nil
 }
 
 func readDirNames(dir string) []string {
