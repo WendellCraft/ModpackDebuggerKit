@@ -2,7 +2,10 @@ module modpackdebuggerkit
 
 go 1.27.2
 
-require github.com/wailsapp/wails/v2 v2.17.0
+require (
+	github.com/wailsapp/wails/v2 v2.17.0
+	golang.org/x/sys v0.46.0
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
@@ -31,6 +34,5 @@ require (
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
 )

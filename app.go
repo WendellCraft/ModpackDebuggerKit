@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -1013,13 +1012,6 @@ func (a *App) GetTheme() string {
 }
 
 // --- Debug Control ---
-
-func findPrismLauncher() (string, error) {
-	if path, err := exec.LookPath("prismlauncher"); err == nil {
-		return path, nil
-	}
-	return "", fmt.Errorf("Prism Launcher not found. Install it or turn off Auto Launch Game.")
-}
 
 func (a *App) StartDebug(mode string, selectedMods []string, autoLaunch bool) error {
 	a.mu.Lock()
