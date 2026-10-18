@@ -54,6 +54,38 @@ func copyFile(src, dst string) error {
 	return os.Remove(src)
 }
 
+// collectDependencies returns the start mods together with every mod reachable from
+// them through the dependency graph. When only is non-nil, mods outside of it are
+// ignored, which keeps a group limited to the mods that take part in the scan.
+func collectDependencies(start []string, dependencies map[string][]string, only map[string]bool) map[string]bool {
+	collected := make(map[string]bool, len(start))
+	queue := make([]string, 0, len(start))
+	for _, mod := range start {
+		if mod == "" || collected[mod] {
+			continue
+		}
+		collected[mod] = true
+		queue = append(queue, mod)
+	}
+
+	for len(queue) > 0 {
+		mod := queue[0]
+		queue = queue[1:]
+		for _, dep := range dependencies[mod] {
+			if dep == "" || collected[dep] {
+				continue
+			}
+			if only != nil && !only[dep] {
+				continue
+			}
+			collected[dep] = true
+			queue = append(queue, dep)
+		}
+	}
+
+	return collected
+}
+
 func (a *App) getPrimaryModsAndGroupMap(allMods []string) ([]string, map[string][]string) {
 	a.mu.Lock()
 	deps := a.ProjectData.Dependencies
@@ -89,24 +121,7 @@ func (a *App) getPrimaryModsAndGroupMap(allMods []string) ([]string, map[string]
 
 	groupMap := make(map[string][]string)
 	for _, primary := range primaryMods {
-		group := make(map[string]bool)
-		group[primary] = true
-		queue := make([]string, 0)
-		queue = append(queue, deps[primary]...)
-		processed := make(map[string]bool)
-
-		for len(queue) > 0 {
-			dep := queue[0]
-			queue = queue[1:]
-			if processed[dep] {
-				continue
-			}
-			processed[dep] = true
-			if allModsSet[dep] {
-				group[dep] = true
-				queue = append(queue, deps[dep]...)
-			}
-		}
+		group := collectDependencies([]string{primary}, deps, allModsSet)
 
 		var groupList []string
 		for m := range group {

@@ -1061,13 +1061,33 @@ func (a *App) StartDebug(mode string, selectedMods []string, autoLaunch bool) er
 		mods = selectedMods
 	}
 
+	// A required mod is only usable together with its dependencies, so they are kept
+	// in the folder as well instead of being moved out with the tested mods.
 	a.mu.Lock()
 	required := a.ProjectData.RequiredMods
+	dependencies := a.ProjectData.Dependencies
+	requiredSet := collectDependencies(required, dependencies, nil)
 	a.mu.Unlock()
-	requiredSet := make(map[string]bool)
-	for _, r := range required {
-		requiredSet[r] = true
+
+	if len(required) > 0 && len(dependencies) == 0 {
+		a.emitLog("No dependency information is stored yet, so only the required mods themselves are kept. If none of your required mods have dependencies, you can ignore this warning. Otherwise run Sync Dependencies to keep their dependencies too.", LogWarning)
 	}
+
+	requiredExplicitly := make(map[string]bool, len(required))
+	for _, mod := range required {
+		requiredExplicitly[mod] = true
+	}
+	var keptDependencies []string
+	for mod := range requiredSet {
+		if !requiredExplicitly[mod] {
+			keptDependencies = append(keptDependencies, mod)
+		}
+	}
+	sort.Strings(keptDependencies)
+	if len(keptDependencies) > 0 {
+		a.emitLog(fmt.Sprintf("Keeping %d dependency mod(s) needed by the required mods: %s", len(keptDependencies), joinStrings(keptDependencies, ", ")), LogInfo)
+	}
+
 	var filtered []string
 	for _, m := range mods {
 		if !requiredSet[m] {
