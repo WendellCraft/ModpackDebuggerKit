@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 wendellmeset
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 let projectModified = false;
 let projectFilePath = "";
 let currentTheme = "dark";
