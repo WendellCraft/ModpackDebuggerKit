@@ -18,6 +18,9 @@ func getSHA1Hash(filePath string) (string, error) {
 	}
 	defer f.Close()
 
+	// SHA-1 is what the Modrinth API uses to identify mod files (the /version_file
+	// endpoint), so it is an API requirement here, not a security primitive.
+	// nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
 	h := sha1.New()
 	if _, err := io.CopyBuffer(h, f, make([]byte, 65536)); err != nil {
 		return "", fmt.Errorf("error reading file %s: %w", filePath, err)
